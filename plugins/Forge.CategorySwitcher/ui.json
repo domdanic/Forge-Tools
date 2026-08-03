@@ -10,14 +10,13 @@
       ]
     },
     {
-      "title": "Application mappings",
+      "title": "Games and applications",
       "controls": [
         {
-          "type": "multiline",
-          "key": "mappings",
-          "label": "One mapping per line: process.exe = Twitch Category",
-          "description": "Example: eldenring.exe = Elden Ring",
-          "default": "# process.exe = Exact Twitch category name\n"
+          "type": "process-category-mappings",
+          "key": "mappingEntries",
+          "label": "Associate a running process with a Twitch category",
+          "description": "Search Twitch, save mappings, or switch immediately from a saved card."
         }
       ]
     }

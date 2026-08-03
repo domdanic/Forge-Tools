@@ -176,7 +176,7 @@ public sealed class PluginManager
         if (!System.Text.RegularExpressions.Regex.IsMatch(manifest.Id ?? "", "^[a-z0-9]+(?:[.-][a-z0-9]+)+$")) { error = "Plugin ID must be a reverse-domain-style lowercase identifier."; return false; }
         if (string.IsNullOrWhiteSpace(manifest.Name)) { error = "Plugin name is required."; return false; }
         if (!Version.TryParse(manifest.Version, out _)) { error = "Plugin version must be numeric semantic version text."; return false; }
-        if (manifest.ForgeApi != "1") { error = $"Plugin requires unsupported Forge API {manifest.ForgeApi}."; return false; }
+        if (manifest.ForgeApi is not ("1" or "2")) { error = $"Plugin requires unsupported Forge API {manifest.ForgeApi}."; return false; }
         var prefixes = new[] { "storage.", "obs.", "twitch.", "network.", "filesystem.", "system." };
         if (manifest.Permissions.Any(permission => !prefixes.Any(prefix => permission.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))) { error = "Plugin declares an unknown permission."; return false; }
         error = ""; return true;

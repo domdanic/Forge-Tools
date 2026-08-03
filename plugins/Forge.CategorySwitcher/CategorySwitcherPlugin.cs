@@ -39,11 +39,14 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
                     var delay = Math.Clamp(ParseInt(_context.Settings.Get("debounceSeconds", "5"), 5), 1, 60);
                     if (!string.IsNullOrWhiteSpace(candidate) && DateTimeOffset.UtcNow - candidateSince >= TimeSpan.FromSeconds(delay))
                     {
-                        var mappings = ParseMappings(_context.Settings.Get("mappings", ""));
-                        var categoryName = mappings.TryGetValue(candidate, out var mapped) ? mapped : _context.Settings.Get("fallbackCategory", "").Trim();
+                        var mappings = LoadMappings();
+                        var mapping = mappings.FirstOrDefault(item => item.Process.Equals(candidate, StringComparison.OrdinalIgnoreCase));
+                        var categoryName = mapping?.CategoryName ?? _context.Settings.Get("fallbackCategory", "").Trim();
                         if (!string.IsNullOrWhiteSpace(categoryName) && (! _context.Settings.Get("onlyWhileStreaming", true) || await IsStreamingAsync(cancellationToken)))
                         {
-                            var category = await FindCategoryAsync(categoryName, cancellationToken);
+                            var category = mapping is not null && !string.IsNullOrWhiteSpace(mapping.CategoryId)
+                                ? new TwitchCategory(mapping.CategoryId, mapping.CategoryName)
+                                : await FindCategoryAsync(categoryName, cancellationToken);
                             if (category is not null && category.Id != appliedCategoryId)
                             {
                                 var channel = await _context.Connections.Twitch.GetChannelAsync(cancellationToken);
@@ -75,6 +78,12 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         var status = new { process, category, message, at = DateTimeOffset.UtcNow }; File.WriteAllText(Path.Combine(_context!.DataDirectory, "status.json"), JsonSerializer.Serialize(status, new JsonSerializerOptions { WriteIndented = true }));
     }
     private static int ParseInt(string value, int fallback) => int.TryParse(value, out var parsed) ? parsed : fallback;
+    private List<SavedMapping> LoadMappings()
+    {
+        var entries = _context!.Settings.Get("mappingEntries", new List<SavedMapping>());
+        if (entries.Count > 0) return entries;
+        return ParseMappings(_context.Settings.Get("mappings", "")).Select(pair => new SavedMapping(pair.Key, "", pair.Value)).ToList();
+    }
     private static Dictionary<string, string> ParseMappings(string text)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -85,6 +94,8 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         }
         return result;
     }
+
+    private sealed record SavedMapping(string Process, string CategoryId, string CategoryName);
 
     private static class ActiveWindow
     {

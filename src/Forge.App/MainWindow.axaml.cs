@@ -292,7 +292,7 @@ public sealed partial class MainWindow : Window
         foreach (var section in plugin.Ui.Sections)
         {
             panel.Children.Add(Heading(section.Title, 19, new(0, 14, 0, 8)));
-            foreach (var spec in section.Controls) AddControl(panel, fields, settings, spec);
+            foreach (var spec in section.Controls) AddControl(panel, fields, settings, spec, plugin.Manifest.Id);
         }
         _fields[plugin.Manifest.Id] = fields;
         var save = Button("Save settings"); save.HorizontalAlignment = HorizontalAlignment.Left; save.Margin = new(0, 20, 0, 0); save.Click += (_, _) => SavePlugin(plugin.Manifest.Id); panel.Children.Add(save);
@@ -363,7 +363,7 @@ public sealed partial class MainWindow : Window
         diagnostics.Click += async (_, _) => { try { var path = _diagnostics.CreateBundle(); await ShowNoticeAsync("Diagnostics ready", $"Saved locally to:\n{path}\n\nReview it before sharing."); } catch (Exception ex) { await ShowNoticeAsync("Diagnostics failed", ex.Message); } };
         panel.Children.Add(diagnostics);
         panel.Children.Add(Heading("About", 18, new(0, 22, 0, 4)));
-        panel.Children.Add(Secondary($"Forge Tools {typeof(MainWindow).Assembly.GetName().Version}\nAvalonia 12 · .NET {Environment.Version}\nPlugin API 1"));
+        panel.Children.Add(Secondary($"Forge Tools {typeof(MainWindow).Assembly.GetName().Version}\nAvalonia 12 · .NET {Environment.Version}\nPlugin API 1–2"));
         AddTab("Settings", panel);
     }
 
@@ -377,11 +377,18 @@ public sealed partial class MainWindow : Window
     private static TextBlock Status(string text) => new() { Text = text, Foreground = Brushes.Goldenrod, VerticalAlignment = VerticalAlignment.Center, Margin = new(12, 0, 0, 0) };
     private static TextBox Field(Panel panel, string label, string value) { panel.Children.Add(new TextBlock { Text = label }); var field = new TextBox { Text = value }; panel.Children.Add(field); return field; }
 
-    private static void AddControl(Panel panel, Dictionary<string, Control> fields, Dictionary<string, JsonElement> settings, UiControl spec)
+    private void AddControl(Panel panel, Dictionary<string, Control> fields, Dictionary<string, JsonElement> settings, UiControl spec, string pluginId)
     {
         panel.Children.Add(new TextBlock { Text = spec.Label, FontWeight = FontWeight.Medium });
         Control field;
-        if (spec.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase)) field = new CheckBox { Content = spec.Description ?? "Enabled", IsChecked = ReadBool(settings, spec.Key, spec.Default), Margin = new(0, 7, 0, 14) };
+        if (spec.Type.Equals("process-category-mappings", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.TryGetValue(spec.Key, out var saved);
+            var editor = new ProcessCategoryMappingEditor(_twitch, saved.ValueKind == JsonValueKind.Undefined ? null : saved, message => StatusText.Text = message);
+            editor.Changed += (_, _) => SavePlugin(pluginId);
+            field = editor;
+        }
+        else if (spec.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase)) field = new CheckBox { Content = spec.Description ?? "Enabled", IsChecked = ReadBool(settings, spec.Key, spec.Default), Margin = new(0, 7, 0, 14) };
         else if (spec.Type.Equals("select", StringComparison.OrdinalIgnoreCase))
         {
             var selected = ReadString(settings, spec.Key, spec.Default);
@@ -395,7 +402,7 @@ public sealed partial class MainWindow : Window
 
     private void SavePlugin(string pluginId)
     {
-        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, _ => null });
+        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, _ => null });
         _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
     }
 

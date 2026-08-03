@@ -94,6 +94,15 @@ public sealed class TwitchAuthService
         return item.ValueKind == JsonValueKind.Undefined ? null : new(item.GetProperty("id").GetString()!, item.GetProperty("name").GetString()!);
     }
 
+    public async Task<IReadOnlyList<TwitchCategory>> SearchCategoriesAsync(string query, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendHelixAsync(HttpMethod.Get, $"search/categories?query={Uri.EscapeDataString(query)}&first=20", null, cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return document.RootElement.GetProperty("data").EnumerateArray()
+            .Select(item => new TwitchCategory(item.GetProperty("id").GetString()!, item.GetProperty("name").GetString()!))
+            .ToList();
+    }
+
     public async Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default)
     {
         if (Identity is null) return null;
