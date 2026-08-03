@@ -45,11 +45,11 @@ Declarative plugins contain no executable code and are the safe default for open
 dotnet run --project src\Forge.App\Forge.App.csproj
 ```
 
-The host targets .NET 10 with Avalonia 12 and is designed for Windows, Linux, and macOS. The plugin SDK and declarative UI contract are host-neutral so Crimson can share the same UI foundation and plugin packages.
+The host targets .NET 10 with Avalonia 12 and is designed for Windows, Linux, and macOS. The plugin SDK and declarative UI contract are host-neutral so compatible applications can consume the same plugin packages.
 
 ## Package contract
 
-A plugin ZIP has `plugin.json` and its declared UI file at the archive root. The format intentionally contains no Forge executable types, allowing Crimson or another compatible host to consume the same package. API version `1` currently supports `text`, `toggle`, and `select` controls.
+A plugin ZIP has `plugin.json` and its declared UI file at the archive root. Declarative packages remain portable across compatible hosts. API version `1` currently supports `text`, `toggle`, `select`, and `multiline` controls.
 
 The built-in catalog is empty until a distribution endpoint exists. Add entries to `src/Forge.App/catalog.json`; production should download a signed catalog over HTTPS.
 
