@@ -24,7 +24,7 @@ public sealed partial class MainWindow : Window
     private readonly CoreUpdateService _updates;
     private readonly DiagnosticsService _diagnostics;
     private readonly Dictionary<string, Dictionary<string, Control>> _fields = [];
-    private readonly List<TabItem> _tabs = [];
+    private List<TabItem> _tabs = [];
     private StackPanel? _catalogList;
     private TextBlock? _twitchStatus;
     private Button? _twitchAction;
@@ -48,7 +48,10 @@ public sealed partial class MainWindow : Window
 
     private async Task RefreshAsync()
     {
-        _tabs.Clear();
+        var selectedIndex = MainTabs.SelectedIndex;
+        MainTabs.SelectedIndex = -1;
+        MainTabs.ItemsSource = null;
+        _tabs = [];
         _fields.Clear();
         var installed = _plugins.Discover();
         AddHomeTab(installed);
@@ -58,6 +61,7 @@ public sealed partial class MainWindow : Window
         AddSettingsTab();
         MainTabs.ItemsSource = null;
         MainTabs.ItemsSource = _tabs;
+        MainTabs.SelectedIndex = Math.Clamp(selectedIndex, 0, _tabs.Count - 1);
         StatusText.Text = $"{installed.Count} plugin{(installed.Count == 1 ? "" : "s")} installed";
         await _runtime.StartAsync(installed.Where(x => _plugins.IsEnabled(x.Manifest.Id)));
         await _events.PublishAsync(new ForgeStarted(DateTimeOffset.UtcNow));
@@ -248,8 +252,19 @@ public sealed partial class MainWindow : Window
             + "\n\nContinue?";
         if (!await ConfirmAsync("Install plugin", permissionText, "Allow & Install")) return;
         button.IsEnabled = false; button.Content = "Installing…";
-        try { await _plugins.InstallAsync(plugin); await RefreshAsync(); }
-        catch (Exception ex) { await ShowNoticeAsync("Plugin installation failed", ex.Message); button.IsEnabled = true; button.Content = "Retry"; }
+        try
+        {
+            await _plugins.InstallAsync(plugin);
+            _permissions.Set(plugin.Id, plugin.Permissions);
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            await _logger.WriteAsync("ERROR", "forge.core.plugins", $"Installation of {plugin.Id} failed.", ex);
+            await ShowNoticeAsync("Plugin installation failed", ex.Message);
+            button.IsEnabled = true;
+            button.Content = "Retry";
+        }
     }
 
     private void AddPluginTab(InstalledPlugin plugin)
