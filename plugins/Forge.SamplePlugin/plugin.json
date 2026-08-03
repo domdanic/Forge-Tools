@@ -1,0 +1,10 @@
+{
+  "id": "tools.forge.stream-notes",
+  "name": "Stream Notes",
+  "version": "0.1.0",
+  "description": "A declarative sample plugin for testing Forge's generated settings UI.",
+  "author": "Forge Tools",
+  "forgeApi": "1",
+  "ui": "ui.json",
+  "permissions": ["storage.local"]
+}

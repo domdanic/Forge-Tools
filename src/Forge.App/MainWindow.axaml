@@ -1,0 +1,11 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Forge.App.MainWindow" Title="Forge Tools" Width="1100" Height="720" MinWidth="820" MinHeight="560">
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Background="#15181D" Padding="18,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel><TextBlock Text="FORGE TOOLS" FontSize="21" FontWeight="Bold" Foreground="#F06432"/><TextBlock Text="Build the toolkit you need." FontSize="12" Foreground="#A8ADB7"/></StackPanel>
+        <TextBlock x:Name="StatusText" Grid.Column="1" VerticalAlignment="Center" Foreground="#A8ADB7" Text="Loading plugins…"/>
+      </Grid>
+    </Border>
+    <TabControl x:Name="MainTabs" Grid.Row="1" Padding="10" Background="#101216"/>
+  </Grid>
+</Window>

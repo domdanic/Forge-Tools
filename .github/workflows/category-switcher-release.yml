@@ -1,0 +1,42 @@
+name: Release Category Switcher
+on:
+  push:
+    tags: ['category-switcher-v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet restore plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj --configfile NuGet.Config
+      - run: dotnet build plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj -c Release --no-restore --warnaserror
+      - name: Package plugin
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}' -replace '^category-switcher-v',''
+          $output = "Forge.CategorySwitcher-$version.zip"
+          Compress-Archive -Path plugins/Forge.CategorySwitcher/bin/Release/net10.0/* -DestinationPath $output
+          "PACKAGE=$output" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SHA256=$((Get-FileHash $output -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - uses: softprops/action-gh-release@v2
+        with: { files: '${{ env.PACKAGE }}' }
+      - name: Publish catalogue entry
+        shell: pwsh
+        run: |
+          git checkout main
+          $catalog = Get-Content catalog/catalog.json -Raw | ConvertFrom-Json
+          $entry = $catalog.plugins | Where-Object id -eq 'tools.forge.category-switcher'
+          $entry.version = '${{ github.ref_name }}' -replace '^category-switcher-v',''
+          $entry.packageUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$env:PACKAGE"
+          $entry.sha256 = $env:SHA256
+          $entry.available = $true
+          $catalog | ConvertTo-Json -Depth 10 | Set-Content catalog/catalog.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add catalog/catalog.json
+          git commit -m "Publish Category Switcher $($entry.version)"
+          git push origin main

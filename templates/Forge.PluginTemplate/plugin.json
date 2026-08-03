@@ -1,0 +1,12 @@
+{
+  "id": "com.example.my-plugin",
+  "name": "My Forge Plugin",
+  "version": "0.1.0",
+  "description": "Describe the plugin.",
+  "author": "Your Name",
+  "forgeApi": "1",
+  "entryAssembly": "Forge.PluginTemplate.dll",
+  "entryType": "Forge.PluginTemplate.Plugin",
+  "ui": "ui.json",
+  "permissions": ["obs.read", "storage.local"]
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/plugins/">
+    <Project Path="plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj" />
+    <Project Path="plugins/Forge.SamplePlugin/Forge.SamplePlugin.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Forge.App/Forge.App.csproj" />
+    <Project Path="src/Forge.PluginSdk/Forge.PluginSdk.csproj" />
+    <Project Path="src/Forge.Updater/Forge.Updater.csproj" />
+  </Folder>
+</Solution>

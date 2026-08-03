@@ -1,0 +1,6 @@
+{
+  "sections": [{
+    "title": "General",
+    "controls": [{ "type": "toggle", "key": "enabled", "label": "Enable plugin", "default": true }]
+  }]
+}

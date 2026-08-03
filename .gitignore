@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+work/
+publish/
+artifacts/
+data/
+**/data/
+*.oauth
+*.token
+*.credential
+*.credentials
+*.secret
+*.secrets
+*.log
+*.user
+*.suo

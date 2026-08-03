@@ -1,0 +1,15 @@
+{
+  "sections": [
+    {
+      "title": "Notes",
+      "controls": [
+        { "type": "toggle", "key": "enabled", "label": "Enable stream notes", "default": true },
+        { "type": "text", "key": "title", "label": "Default stream title", "default": "Tonight's stream" },
+        { "type": "select", "key": "visibility", "label": "Note visibility", "default": "private", "options": [
+          { "label": "Private", "value": "private" },
+          { "label": "Show on overlay", "value": "overlay" }
+        ]}
+      ]
+    }
+  ]
+}

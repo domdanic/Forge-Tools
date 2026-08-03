@@ -1,0 +1,41 @@
+name: Release
+on:
+  push:
+    tags: ['core-v*']
+permissions:
+  contents: write
+jobs:
+  publish:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore ForgeTools.slnx --configfile NuGet.Config
+      - run: dotnet publish src/Forge.App/Forge.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=false -o publish/${{ matrix.rid }}
+      - name: Add portable folders
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path publish/${{ matrix.rid }}/data | Out-Null; Copy-Item data/.gitignore publish/${{ matrix.rid }}/data/.gitignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ForgeTools-${{ matrix.rid }}
+          path: publish/${{ matrix.rid }}
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - run: for d in artifacts/*; do (cd "$d" && zip -r "../$(basename "$d").zip" .); done
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip

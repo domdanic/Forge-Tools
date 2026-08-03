@@ -1,0 +1,17 @@
+{
+  "plugins": [
+    {
+      "id": "tools.forge.category-switcher",
+      "name": "Category Switcher",
+      "version": "0.1.0",
+      "description": "Updates your Twitch category from the currently focused application.",
+      "author": "Forge Tools",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/category-switcher-v0.1.0/Forge.CategorySwitcher-0.1.0.zip",
+      "sha256": "PENDING_RELEASE",
+      "forgeApi": "1",
+      "verified": false,
+      "available": false,
+      "permissions": ["system.active-window.read", "obs.read", "twitch.channel.read", "twitch.channel.manage.broadcast", "storage.local"]
+    }
+  ]
+}

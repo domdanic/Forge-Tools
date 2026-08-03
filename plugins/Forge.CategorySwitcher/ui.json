@@ -1,0 +1,25 @@
+{
+  "sections": [
+    {
+      "title": "Behavior",
+      "controls": [
+        { "type": "toggle", "key": "enabled", "label": "Enable automatic category switching", "default": true },
+        { "type": "toggle", "key": "onlyWhileStreaming", "label": "Only update while OBS is streaming", "default": true },
+        { "type": "text", "key": "debounceSeconds", "label": "Wait before switching (seconds)", "default": "5" },
+        { "type": "text", "key": "fallbackCategory", "label": "Optional category for unmapped applications", "default": "" }
+      ]
+    },
+    {
+      "title": "Application mappings",
+      "controls": [
+        {
+          "type": "multiline",
+          "key": "mappings",
+          "label": "One mapping per line: process.exe = Twitch Category",
+          "description": "Example: eldenring.exe = Elden Ring",
+          "default": "# process.exe = Exact Twitch category name\n"
+        }
+      ]
+    }
+  ]
+}

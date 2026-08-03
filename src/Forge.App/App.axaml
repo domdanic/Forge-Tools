@@ -1,0 +1,12 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Forge.App.App" RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window"><Setter Property="Background" Value="#101216"/><Setter Property="Foreground" Value="#F1F3F5"/></Style>
+    <Style Selector="TabItem"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#A8ADB7"/><Setter Property="FontSize" Value="13"/><Setter Property="Padding" Value="11,6"/><Setter Property="Margin" Value="0,0,3,0"/><Setter Property="MinHeight" Value="32"/></Style>
+    <Style Selector="TabItem:pointerover"><Setter Property="Background" Value="#20242B"/><Setter Property="Foreground" Value="#F1F3F5"/></Style>
+    <Style Selector="TabItem:selected"><Setter Property="Background" Value="#292D35"/><Setter Property="Foreground" Value="#F06432"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+    <Style Selector="Button"><Setter Property="Background" Value="#F06432"/><Setter Property="Foreground" Value="White"/><Setter Property="Padding" Value="14,8"/><Setter Property="Margin" Value="4"/></Style>
+    <Style Selector="TextBox"><Setter Property="Foreground" Value="#111318"/><Setter Property="Background" Value="#F5F6F8"/><Setter Property="Margin" Value="0,5,0,12"/></Style>
+    <Style Selector="ComboBox"><Setter Property="Foreground" Value="#111318"/><Setter Property="Background" Value="#F5F6F8"/><Setter Property="Margin" Value="0,5,0,12"/></Style>
+  </Application.Styles>
+</Application>
