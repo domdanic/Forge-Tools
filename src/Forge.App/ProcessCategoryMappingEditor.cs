@@ -3,6 +3,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Forge.PluginSdk;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Forge.App;
@@ -45,7 +46,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
 
         var save = new Button { Content = "Add saved game", HorizontalAlignment = HorizontalAlignment.Left };
         save.Click += (_, _) => SaveMapping();
-        Children.Add(new TextBlock { Text = "Running process" });
+        Children.Add(new TextBlock { Text = "Running app" });
         Children.Add(processRow);
         Children.Add(new TextBlock { Text = "Twitch category" });
         Children.Add(searchRow);
@@ -59,16 +60,18 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     private void RefreshProcesses()
     {
         var selected = (_process.SelectedItem as ComboBoxItem)?.Tag as string;
-        var names = Process.GetProcesses().Select(process =>
-        {
-            try { var name = process.ProcessName; return OperatingSystem.IsWindows() && !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name + ".exe" : name; }
-            catch { return null; }
-            finally { process.Dispose(); }
-        }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList();
+        var names = OperatingSystem.IsWindows() ? WindowsApps.ListProcessNames() : ListProcesses();
         var items = names.Select(name => new ComboBoxItem { Content = name, Tag = name }).ToList();
         _process.ItemsSource = items;
         _process.SelectedItem = items.FirstOrDefault(item => string.Equals(item.Tag as string, selected, StringComparison.OrdinalIgnoreCase));
     }
+
+    private static List<string> ListProcesses() => Process.GetProcesses().Select(process =>
+    {
+        try { return process.ProcessName; }
+        catch { return null; }
+        finally { process.Dispose(); }
+    }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList()!;
 
     private async Task SearchAsync()
     {
@@ -123,5 +126,37 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         var item = new ComboBoxItem { Content = mapping.CategoryName, Tag = new TwitchCategory(mapping.CategoryId, mapping.CategoryName) };
         _categories.ItemsSource = new[] { item }; _categories.SelectedItem = item; _query.Text = mapping.CategoryName;
         _status($"Editing {mapping.Process}");
+    }
+
+    private static class WindowsApps
+    {
+        private const int DwmwaCloaked = 14;
+
+        public static List<string> ListProcessNames()
+        {
+            var processIds = new HashSet<uint>();
+            EnumWindows((window, _) =>
+            {
+                if (!IsWindowVisible(window) || GetWindowTextLength(window) == 0 || GetWindow(window, 4) != IntPtr.Zero) return true;
+                if (DwmGetWindowAttribute(window, DwmwaCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
+                GetWindowThreadProcessId(window, out var processId);
+                if (processId != Environment.ProcessId) processIds.Add(processId);
+                return true;
+            }, IntPtr.Zero);
+
+            return processIds.Select(processId =>
+            {
+                try { using var process = Process.GetProcessById((int)processId); return process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe"; }
+                catch { return null; }
+            }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList()!;
+        }
+
+        private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowTextLength(IntPtr window);
+        [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window, uint command);
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+        [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
     }
 }

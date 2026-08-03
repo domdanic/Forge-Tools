@@ -23,7 +23,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.1.9</Version>
+    <Version>0.1.10</Version>
     <UseAppHost>true</UseAppHost>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
