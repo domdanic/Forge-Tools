@@ -19,7 +19,14 @@ public sealed class ForgeEventBus : IForgeEventBus
     {
         if (!_handlers.TryGetValue(typeof(T), out var list)) return;
         Delegate[] snapshot; lock (list) snapshot = [.. list];
-        foreach (var handler in snapshot.Cast<Func<T, Task>>()) { cancellationToken.ThrowIfCancellationRequested(); await handler(message); }
+        List<Exception>? failures = null;
+        foreach (var handler in snapshot.Cast<Func<T, Task>>())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try { await handler(message); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+        if (failures is not null) throw new AggregateException($"{failures.Count} Forge event subscriber(s) failed.", failures);
     }
     private sealed class Subscription(Action dispose) : IDisposable { public void Dispose() => dispose(); }
 }

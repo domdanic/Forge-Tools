@@ -11,6 +11,7 @@ internal sealed record ProcessCategoryMapping(string Process, string CategoryId,
 internal sealed class ProcessCategoryMappingEditor : StackPanel
 {
     private readonly TwitchAuthService _twitch;
+    private readonly IForgeEventBus _events;
     private readonly Action<string> _status;
     private readonly string? _optionsSource;
     private readonly ComboBox _process = new() { MinWidth = 260 };
@@ -22,9 +23,10 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     public List<ProcessCategoryMapping> Mappings { get; } = [];
     public event EventHandler? Changed;
 
-    public ProcessCategoryMappingEditor(TwitchAuthService twitch, JsonElement? saved, string? optionsSource, Action<string> status)
+    public ProcessCategoryMappingEditor(TwitchAuthService twitch, IForgeEventBus events, JsonElement? saved, string? optionsSource, Action<string> status)
     {
         _twitch = twitch;
+        _events = events;
         _optionsSource = optionsSource;
         _status = status;
         Spacing = 8;
@@ -106,7 +108,16 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         {
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             var switchNow = new Button { Content = "Switch now" };
-            switchNow.Click += async (_, _) => { try { await _twitch.UpdateCategoryAsync(mapping.CategoryId); _status($"Switched Twitch to {mapping.CategoryName}"); } catch (Exception ex) { _status("Category switch failed: " + ex.Message); } };
+            switchNow.Click += async (_, _) =>
+            {
+                try
+                {
+                    await _twitch.UpdateCategoryAsync(mapping.CategoryId);
+                    await _events.PublishAsync(new TwitchCategoryChanged(mapping.CategoryId, mapping.CategoryName, "forge.core.manual", DateTimeOffset.UtcNow));
+                    _status($"Switched Twitch to {mapping.CategoryName}");
+                }
+                catch (Exception ex) { _status("Category switch failed: " + ex.Message); }
+            };
             var edit = new Button { Content = "Edit" };
             edit.Click += (_, _) => BeginEdit(mapping);
             var remove = new Button { Content = "Remove" };

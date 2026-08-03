@@ -110,6 +110,8 @@ internal sealed class PermissionedConnections(string pluginId, IReadOnlySet<stri
         public Task<JsonElement> RequestAsync(string requestType, object? requestData = null, CancellationToken cancellationToken = default)
         {
             if (!grants.Contains("obs.control") && !grants.Contains("obs.read")) throw new UnauthorizedAccessException($"{pluginId} does not have OBS permission.");
+            if (!grants.Contains("obs.control") && !requestType.StartsWith("Get", StringComparison.Ordinal))
+                throw new UnauthorizedAccessException($"{pluginId} requires obs.control for the {requestType} request.");
             return inner.RequestAsync(requestType, requestData, cancellationToken);
         }
     }

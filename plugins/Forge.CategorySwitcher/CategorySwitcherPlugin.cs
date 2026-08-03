@@ -52,7 +52,11 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
                             {
                                 var channel = await _context.Connections.Twitch.GetChannelAsync(cancellationToken);
                                 if (channel?.CategoryId != category.Id) await _context.Connections.Twitch.UpdateCategoryAsync(category.Id, cancellationToken);
-                                appliedCategoryId = category.Id; WriteStatus(candidate, category.Name, "Updated");
+                                appliedCategoryId = category.Id;
+                                WriteStatus(candidate, category.Name, "Updated");
+                                await _context.Events.PublishAsync(
+                                    new TwitchCategoryChanged(category.Id, category.Name, _context.PluginId, DateTimeOffset.UtcNow),
+                                    cancellationToken);
                             }
                         }
                     }

@@ -17,13 +17,11 @@
     <None Include=".forge-root" CopyToOutputDirectory="PreserveNewest" />
     <None Include="update-source.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="trusted-publishers.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\plugins\Forge.SamplePlugin\plugin.json" Link="BundledPlugins\tools.forge.stream-notes\plugin.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\plugins\Forge.SamplePlugin\ui.json" Link="BundledPlugins\tools.forge.stream-notes\ui.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.1.13</Version>
+    <Version>0.2.0</Version>
     <UseAppHost>true</UseAppHost>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

@@ -73,7 +73,7 @@ public sealed partial class MainWindow : Window
         var panel = NewPanel();
         panel.Children.Add(Heading("Your streaming workshop", 28));
         panel.Children.Add(Secondary("Forge Core stays lean. Install only the tools your setup needs."));
-        panel.Children.Add(Card(new TextBlock { Text = $"{installed.Count} installed plugin{(installed.Count == 1 ? "" : "s")}\nForge Plugin API 1", FontSize = 18, LineHeight = 28 }));
+        panel.Children.Add(Card(new TextBlock { Text = $"{installed.Count} installed plugin{(installed.Count == 1 ? "" : "s")}\nForge Plugin API 2", FontSize = 18, LineHeight = 28 }));
         panel.Children.Add(Heading("Installed tools", 20, new(0, 24, 0, 10)));
         if (installed.Count == 0) panel.Children.Add(Secondary("No plugins installed yet. Visit the Plugin Library to add one."));
         foreach (var plugin in installed)
@@ -230,7 +230,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var catalog = await _plugins.LoadCatalogAsync(Path.Combine(AppContext.BaseDirectory, "catalog.json"));
-            if (catalog.Plugins.Count == 0) { _catalogList.Children.Add(Secondary("No remote catalog has been configured yet. The bundled sample demonstrates the cross-platform plugin UI system.")); return; }
+            if (catalog.Plugins.Count == 0) { _catalogList.Children.Add(Secondary("No plugins are currently available from this catalogue.")); return; }
             foreach (var item in catalog.Plugins)
             {
                 var current = installed.FirstOrDefault(x => x.Manifest.Id == item.Id);
@@ -393,7 +393,21 @@ public sealed partial class MainWindow : Window
                 var candidate = Path.GetFullPath(Path.Combine(pluginData, spec.OptionsSource));
                 if (candidate.StartsWith(pluginData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) optionsSource = candidate;
             }
-            var editor = new ProcessCategoryMappingEditor(_twitch, saved.ValueKind == JsonValueKind.Undefined ? null : saved, optionsSource, message => StatusText.Text = message);
+            var editor = new ProcessCategoryMappingEditor(_twitch, _events, saved.ValueKind == JsonValueKind.Undefined ? null : saved, optionsSource, message => StatusText.Text = message);
+            editor.Changed += (_, _) => SavePlugin(pluginId);
+            field = editor;
+        }
+        else if (spec.Type.Equals("capture-switch-mappings", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.TryGetValue(spec.Key, out var saved);
+            string? optionsSource = null;
+            if (!string.IsNullOrWhiteSpace(spec.OptionsSource))
+            {
+                var pluginData = Path.GetFullPath(Path.Combine(_plugins.SettingsDirectory, "plugin-data", pluginId));
+                var candidate = Path.GetFullPath(Path.Combine(pluginData, spec.OptionsSource));
+                if (candidate.StartsWith(pluginData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) optionsSource = candidate;
+            }
+            var editor = new CaptureSwitchMappingEditor(_twitch, _obs, _events, saved.ValueKind == JsonValueKind.Undefined ? null : saved, optionsSource, message => StatusText.Text = message);
             editor.Changed += (_, _) => SavePlugin(pluginId);
             field = editor;
         }
@@ -411,7 +425,7 @@ public sealed partial class MainWindow : Window
 
     private void SavePlugin(string pluginId)
     {
-        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, _ => null });
+        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, _ => null });
         _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
     }
 

@@ -79,6 +79,11 @@ public sealed record ProfileChanged(string Previous, string Current);
 public sealed record ObsConnectionChanged(bool Connected, string? Message = null);
 public sealed record ObsEvent(string EventType, JsonElement Data);
 public sealed record TwitchConnectionChanged(bool Connected, string? Login = null);
+public sealed record TwitchCategoryChanged(
+    string CategoryId,
+    string CategoryName,
+    string Source,
+    DateTimeOffset At);
 
 public sealed record PluginUi
 {

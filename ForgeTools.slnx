@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/plugins/">
+    <Project Path="plugins/Forge.CaptureSwitcher/Forge.CaptureSwitcher.csproj" />
     <Project Path="plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj" />
-    <Project Path="plugins/Forge.SamplePlugin/Forge.SamplePlugin.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Forge.App/Forge.App.csproj" />

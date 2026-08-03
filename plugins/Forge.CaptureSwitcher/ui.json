@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {
+      "title": "Capture switching",
+      "controls": [
+        {
+          "type": "toggle",
+          "key": "enabled",
+          "label": "Enable automatic capture switching",
+          "description": "React when Forge confirms that your Twitch category changed.",
+          "default": true
+        }
+      ]
+    },
+    {
+      "title": "Capture rules",
+      "controls": [
+        {
+          "type": "capture-switch-mappings",
+          "key": "mappingEntries",
+          "optionsSource": "capture-targets.json",
+          "label": "Choose what OBS should capture for each Twitch category",
+          "description": "Pick a category, a running app, and your existing OBS Game Capture and Application Audio Capture sources."
+        }
+      ]
+    }
+  ]
+}

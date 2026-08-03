@@ -2,7 +2,7 @@
 
 Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The core owns discovery, installation, updates, settings, shared connections, and UI rendering; capabilities live in plugins.
 
-## Proof-of-concept features
+## Features
 
 - Uses an always-portable `data` folder beside the executable. Deleting the Forge folder removes the complete installation.
 - Discovers plugins under `data\plugins`.
@@ -10,7 +10,6 @@ Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The co
 - Persists settings per plugin without plugin-specific host code.
 - Reads a curated `catalog.json` and identifies installs/updates.
 - Downloads ZIP packages, verifies SHA-256, blocks ZIP path traversal, validates identity, and uses rollback-aware replacement.
-- Includes a declarative sample plugin.
 
 ## Core platform
 
@@ -20,6 +19,7 @@ Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The co
 - Shared permission-gated OBS and Twitch connection interfaces for plugins.
 - Plugin lifecycle (`Initialize`, `Start`, `Stop`, `Dispose`) with collectible load contexts and lifecycle-exception containment.
 - Typed event bus for Forge, profile, OBS, and Twitch events.
+- Stable category-change events that let plugins cooperate without depending directly on one another.
 - Enable, disable, permission review, update, and uninstall controls.
 - Per-profile settings and permission grants.
 - Sanitized local logging and credential-free diagnostics bundles.
@@ -37,6 +37,8 @@ Copy `templates/Forge.PluginTemplate`, change its ID and metadata, and implement
 
 Plugins declare all requested permissions in `plugin.json`. Forge does not expose shared connection services until the user grants those permissions.
 
+Forge's maintained plugins currently include Category Switcher and Capture Switcher. Category Switcher publishes a confirmed `TwitchCategoryChanged` event; Capture Switcher consumes that event to retarget existing OBS Game Capture and Application Audio Capture sources.
+
 Declarative plugins contain no executable code and are the safe default for open community distribution. Executable .NET plugins currently run in-process and must be treated as trusted code: service permissions prevent accidental API access but cannot sandbox arbitrary operating-system calls. A future out-of-process worker is required before Forge should advertise unreviewed executable plugins as isolated.
 
 ## Run
@@ -45,13 +47,13 @@ Declarative plugins contain no executable code and are the safe default for open
 dotnet run --project src\Forge.App\Forge.App.csproj
 ```
 
-The host targets .NET 10 with Avalonia 12 and is designed for Windows, Linux, and macOS. The plugin SDK and declarative UI contract are host-neutral so Crimson can share the same UI foundation and plugin packages.
+The host targets .NET 10 with Avalonia 12 and is designed for Windows, Linux, and macOS. The plugin SDK and declarative UI contract are host-neutral.
 
 ## Package contract
 
-A plugin ZIP has `plugin.json` and its declared UI file at the archive root. The format intentionally contains no Forge executable types, allowing Crimson or another compatible host to consume the same package. API version `1` currently supports `text`, `toggle`, and `select` controls.
+A plugin ZIP has `plugin.json` and its declared UI file at the archive root. Forge Plugin API 2 supports lifecycle plugins, shared permission-gated connections, typed events, and declarative controls including Forge's guided mapping editors.
 
-The built-in catalog is empty until a distribution endpoint exists. Add entries to `src/Forge.App/catalog.json`; production should download a signed catalog over HTTPS.
+The bundled catalogue points to `catalog/catalog.json` in this repository and checks it dynamically for available plugins and updates.
 
 ## Portable storage
 
