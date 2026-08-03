@@ -246,7 +246,7 @@ public sealed partial class MainWindow : Window
         var permissionText = plugin.Id + " requests installation from the curated catalog."
             + (plugin.Permissions.Length == 0 ? "\n\nNo shared-service permissions are declared." : "\n\nRequested permissions:\n" + string.Join("\n", plugin.Permissions.Select(x => "• " + x)))
             + "\n\nContinue?";
-        if (!await ConfirmAsync("Install plugin", permissionText)) return;
+        if (!await ConfirmAsync("Install plugin", permissionText, "Allow & Install")) return;
         button.IsEnabled = false; button.Content = "Installing…";
         try { await _plugins.InstallAsync(plugin); await RefreshAsync(); }
         catch (Exception ex) { await ShowNoticeAsync("Plugin installation failed", ex.Message); button.IsEnabled = true; button.Content = "Retry"; }
@@ -261,7 +261,7 @@ public sealed partial class MainWindow : Window
         var enabled = new CheckBox { Content = "Enabled", IsChecked = _plugins.IsEnabled(plugin.Manifest.Id), VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 12, 0) };
         enabled.IsCheckedChanged += async (_, _) => { _plugins.SetEnabled(plugin.Manifest.Id, enabled.IsChecked == true); await _runtime.StartAsync(_plugins.Discover().Where(x => _plugins.IsEnabled(x.Manifest.Id))); StatusText.Text = $"{plugin.Manifest.Name} {(enabled.IsChecked == true ? "enabled" : "disabled")}"; };
         var uninstall = Button("Uninstall");
-        uninstall.Click += async (_, _) => { if (!await ConfirmAsync("Uninstall plugin", $"Remove {plugin.Manifest.Name}? Its profile settings will be kept.")) return; await _runtime.StopAsync(); _plugins.Remove(plugin.Manifest.Id); await RefreshAsync(); };
+        uninstall.Click += async (_, _) => { if (!await ConfirmAsync("Uninstall plugin", $"Remove {plugin.Manifest.Name}? Its profile settings will be kept.", "Remove")) return; await _runtime.StopAsync(); _plugins.Remove(plugin.Manifest.Id); await RefreshAsync(); };
         management.Children.Add(enabled); management.Children.Add(uninstall); panel.Children.Add(management);
         if (plugin.Manifest.Permissions.Length > 0)
         {
@@ -386,9 +386,9 @@ public sealed partial class MainWindow : Window
         save.Click += (_, _) => { result = input.Text; dialog.Close(); }; cancel.Click += (_, _) => dialog.Close(); await dialog.ShowDialog(this); return result;
     }
 
-    private async Task<bool> ConfirmAsync(string title, string message)
+    private async Task<bool> ConfirmAsync(string title, string message, string confirmText)
     {
-        var yes = Button("Remove"); var no = Button("Cancel"); var result = false;
+        var yes = Button(confirmText); var no = Button("Cancel"); var result = false;
         var actions = new StackPanel { Orientation = Orientation.Horizontal }; actions.Children.Add(yes); actions.Children.Add(no);
         var dialog = new Window { Title = title, Width = 440, SizeToContent = SizeToContent.Height, CanResize = false, Content = new StackPanel { Margin = new(22), Children = { new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new(0, 0, 0, 14) }, actions } } };
         yes.Click += (_, _) => { result = true; dialog.Close(); }; no.Click += (_, _) => dialog.Close(); await dialog.ShowDialog(this); return result;
