@@ -36,6 +36,7 @@ jobs:
         with:
           name: ForgeTools-${{ matrix.rid }}
           path: publish/${{ matrix.rid }}
+          include-hidden-files: true
   release:
     needs: publish
     runs-on: ubuntu-latest
