@@ -91,9 +91,17 @@ public sealed class PluginManager
 
     public async Task<CatalogDocument> LoadCatalogAsync(string source)
     {
-        var json = Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
-            ? await _http.GetStringAsync(uri)
-            : await File.ReadAllTextAsync(source);
+        string json;
+        if (Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+        {
+            var separator = uri.Query.Length == 0 ? "?" : "&";
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri + separator + "forgeCache=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true };
+            using var response = await _http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            json = await response.Content.ReadAsStringAsync();
+        }
+        else json = await File.ReadAllTextAsync(source);
         var catalog = JsonSerializer.Deserialize<CatalogDocument>(json, JsonOptions) ?? new();
         if (!string.IsNullOrWhiteSpace(catalog.SourceUrl) && !string.Equals(source, catalog.SourceUrl, StringComparison.OrdinalIgnoreCase))
             return await LoadCatalogAsync(catalog.SourceUrl);

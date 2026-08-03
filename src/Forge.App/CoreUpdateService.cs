@@ -31,13 +31,14 @@ public sealed class CoreUpdateService
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
 
+        CoreRelease? newest = null;
         foreach (var release in document.RootElement.EnumerateArray())
         {
             if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
             if (release.TryGetProperty("prerelease", out var prerelease) && prerelease.GetBoolean()) continue;
             var tag = GetString(release, "tag_name");
             if (tag is null || !tag.StartsWith("core-v", StringComparison.OrdinalIgnoreCase) || !Version.TryParse(tag[6..], out var version)) continue;
-            if (version <= CurrentVersion) return null;
+            if (version <= CurrentVersion || newest is not null && version <= newest.Version) continue;
 
             var packageName = OperatingSystem.IsWindows() ? "ForgeTools-win-x64.zip" : "ForgeTools-linux-x64.zip";
             var assets = release.GetProperty("assets").EnumerateArray().ToArray();
@@ -45,10 +46,10 @@ public sealed class CoreUpdateService
             var checksumUrl = AssetUrl(assets, packageName + ".sha256");
             if (packageUrl is null || checksumUrl is null)
                 throw new InvalidOperationException($"Forge Tools {version} cannot be installed automatically because its package or checksum is missing.");
-            return new CoreRelease(version, packageUrl, checksumUrl, GetString(release, "body"), GetString(release, "html_url"));
+            newest = new CoreRelease(version, packageUrl, checksumUrl, GetString(release, "body"), GetString(release, "html_url"));
         }
 
-        return null;
+        return newest;
     }
 
     public async Task<string> DownloadAndStageAsync(CoreRelease release, CancellationToken cancellationToken = default)
