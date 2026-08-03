@@ -26,10 +26,10 @@
       "description": "Changes OBS game and application-audio capture targets when your Twitch category changes.",
       "author": "Forge Tools",
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/capture-switcher-v0.1.0/Forge.CaptureSwitcher-0.1.0.zip",
-      "sha256": "PENDING_RELEASE",
+      "sha256": "E35C87FED7262CFDBE70A8AF23122D41F2CD659B9295BB3A8608E3B2936E293E",
       "forgeApi": "2",
       "verified": false,
-      "available": false,
+      "available": true,
       "permissions": [
         "system.windows.read",
         "obs.read",
