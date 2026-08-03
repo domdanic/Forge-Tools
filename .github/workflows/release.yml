@@ -23,7 +23,9 @@ jobs:
       - run: dotnet publish src/Forge.App/Forge.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=false -o publish/${{ matrix.rid }}
       - name: Add portable folders
         shell: pwsh
-        run: New-Item -ItemType Directory -Force -Path publish/${{ matrix.rid }}/data | Out-Null; Copy-Item data/.gitignore publish/${{ matrix.rid }}/data/.gitignore
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/${{ matrix.rid }}/data | Out-Null
+          Get-ChildItem publish/${{ matrix.rid }} -Filter *.pdb -Recurse | Remove-Item -Force
       - uses: actions/upload-artifact@v4
         with:
           name: ForgeTools-${{ matrix.rid }}
