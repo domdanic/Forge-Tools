@@ -40,8 +40,14 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
                 var assemblyPath = Path.GetFullPath(Path.Combine(installed.Directory, installed.Manifest.EntryAssembly!));
                 if (!assemblyPath.StartsWith(Path.GetFullPath(installed.Directory), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Plugin entry assembly is outside its package.");
                 var loadContext = new AssemblyLoadContext($"Forge.Plugin.{installed.Manifest.Id}", isCollectible: true);
-                loadContext.Resolving += (_, name) => name.Name == typeof(IForgePlugin).Assembly.GetName().Name ? typeof(IForgePlugin).Assembly : null;
-                var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
+                loadContext.Resolving += (context, name) =>
+                {
+                    if (name.Name == typeof(IForgePlugin).Assembly.GetName().Name) return typeof(IForgePlugin).Assembly;
+                    var dependency = Path.Combine(installed.Directory, name.Name + ".dll");
+                    return File.Exists(dependency) ? context.LoadFromStream(new MemoryStream(File.ReadAllBytes(dependency))) : null;
+                };
+                await using var assemblyFile = new FileStream(assemblyPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 81920, true);
+                var assembly = loadContext.LoadFromStream(assemblyFile);
                 var type = !string.IsNullOrWhiteSpace(installed.Manifest.EntryType) ? assembly.GetType(installed.Manifest.EntryType!, true) : assembly.GetTypes().FirstOrDefault(x => typeof(IForgePlugin).IsAssignableFrom(x) && !x.IsAbstract);
                 if (type is null || Activator.CreateInstance(type) is not IForgePlugin plugin) throw new InvalidDataException("No IForgePlugin entry type was found.");
                 var data = Path.Combine(_settingsDirectory, "plugin-data", installed.Manifest.Id); Directory.CreateDirectory(data);
@@ -61,6 +67,9 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
             loaded.Context.Unload();
         }
         _loaded.Clear();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
     public async ValueTask DisposeAsync() => await StopAsync();
     private sealed record LoadedPlugin(string Id, IForgePlugin Plugin, AssemblyLoadContext Context);

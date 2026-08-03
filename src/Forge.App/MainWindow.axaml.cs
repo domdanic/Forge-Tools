@@ -254,6 +254,7 @@ public sealed partial class MainWindow : Window
         button.IsEnabled = false; button.Content = "Installing…";
         try
         {
+            await _runtime.StopAsync();
             await _plugins.InstallAsync(plugin);
             _permissions.Set(plugin.Id, plugin.Permissions);
             await RefreshAsync();
@@ -261,6 +262,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             await _logger.WriteAsync("ERROR", "forge.core.plugins", $"Installation of {plugin.Id} failed.", ex);
+            await _runtime.StartAsync(_plugins.Discover().Where(x => _plugins.IsEnabled(x.Manifest.Id)));
             await ShowNoticeAsync("Plugin installation failed", ex.Message);
             button.IsEnabled = true;
             button.Content = "Retry";
