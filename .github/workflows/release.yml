@@ -32,10 +32,20 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path publish/${{ matrix.rid }}/data | Out-Null
           Get-ChildItem publish/${{ matrix.rid }} -Filter *.pdb -Recurse | Remove-Item -Force
+      - name: Create package
+        shell: pwsh
+        run: |
+          [System.IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path 'publish/${{ matrix.rid }}'),
+            (Join-Path $PWD 'ForgeTools-${{ matrix.rid }}.zip'))
+          $hash = (Get-FileHash ForgeTools-${{ matrix.rid }}.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  ForgeTools-${{ matrix.rid }}.zip" | Set-Content ForgeTools-${{ matrix.rid }}.zip.sha256 -NoNewline
       - uses: actions/upload-artifact@v4
         with:
           name: ForgeTools-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}
+          path: |
+            ForgeTools-${{ matrix.rid }}.zip
+            ForgeTools-${{ matrix.rid }}.zip.sha256
           include-hidden-files: true
   release:
     needs: publish
@@ -44,7 +54,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - run: for d in artifacts/*; do (cd "$d" && zip -r "../$(basename "$d").zip" .); done
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: artifacts/**/*

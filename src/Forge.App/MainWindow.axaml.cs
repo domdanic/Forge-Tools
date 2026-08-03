@@ -314,19 +314,32 @@ public sealed partial class MainWindow : Window
         };
         profileActions.Children.Add(activate); profileActions.Children.Add(create); panel.Children.Add(profileActions);
         panel.Children.Add(Heading("Updates", 18, new(0, 22, 0, 4)));
+        panel.Children.Add(Secondary("Forge checks the official GitHub Core release channel. Updates are downloaded only with your approval, SHA-256 verified, and applied without touching portable data."));
         var updateActions = new StackPanel { Orientation = Orientation.Horizontal };
         var refresh = Button("Reload plugins"); refresh.HorizontalAlignment = HorizontalAlignment.Left; refresh.Click += async (_, _) => await RefreshAsync(); updateActions.Children.Add(refresh);
         var checkCore = Button("Check Core update");
         checkCore.Click += async (_, _) =>
         {
+            checkCore.IsEnabled = false;
             try
             {
                 using var source = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "update-source.json")));
-                var url = source.RootElement.GetProperty("manifestUrl").GetString() ?? "";
-                if (string.IsNullOrWhiteSpace(url)) { await ShowNoticeAsync("Core updates", "No release manifest URL is configured yet. The updater and rollback helper are ready for the first Forge release channel."); return; }
-                var release = await _updates.CheckAsync(url); await ShowNoticeAsync("Core updates", release is null ? "Forge is up to date." : $"Forge {release.Version} is available.\n\n{release.ReleaseNotes}");
+                var repository = source.RootElement.GetProperty("repository").GetString() ?? "";
+                checkCore.Content = "Checking…";
+                var release = await _updates.CheckAsync(repository);
+                if (release is null) { await ShowNoticeAsync("Core updates", $"Forge Tools {CoreUpdateService.CurrentVersion.ToString(3)} is up to date."); return; }
+                var notes = string.IsNullOrWhiteSpace(release.ReleaseNotes) ? "No release notes were provided." : release.ReleaseNotes;
+                if (!await ConfirmAsync("Core update available", $"Forge Tools {release.Version} is available.\n\n{notes}\n\nDownload, verify, install, and restart now? Your portable data will be preserved and the current application files will be kept for rollback.", "Update & Restart")) return;
+                checkCore.Content = "Downloading…";
+                StatusText.Text = $"Downloading and verifying Forge Tools {release.Version}…";
+                var package = await _updates.DownloadAndStageAsync(release);
+                checkCore.Content = "Restarting…";
+                StatusText.Text = "Update verified. Restarting Forge Tools…";
+                _updates.ApplyWithUpdater(package);
+                Close();
             }
             catch (Exception ex) { await ShowNoticeAsync("Update check failed", ex.Message); }
+            finally { checkCore.IsEnabled = true; checkCore.Content = "Check Core update"; }
         };
         updateActions.Children.Add(checkCore); panel.Children.Add(updateActions);
         panel.Children.Add(Heading("Diagnostics", 18, new(0, 22, 0, 4)));
