@@ -74,12 +74,13 @@ public sealed class CoreUpdateService
         var updaterSource = Path.Combine(appDirectory, updaterName);
         if (!File.Exists(updaterSource)) throw new FileNotFoundException("Forge updater helper was not found.", updaterSource);
 
-        // Run the helper from portable data so it can replace every live application file, including itself.
+        // Run the helper shipped by the incoming release from portable data. This lets
+        // updater fixes take effect before any live application files are replaced.
         var helperDirectory = Path.Combine(_cacheDirectory, "updater-runtime");
         if (Directory.Exists(helperDirectory)) Directory.Delete(helperDirectory, true);
-        Directory.CreateDirectory(helperDirectory);
-        foreach (var file in Directory.EnumerateFiles(appDirectory)) File.Copy(file, Path.Combine(helperDirectory, Path.GetFileName(file)), true);
+        ZipFile.ExtractToDirectory(packagePath, helperDirectory);
         var updater = Path.Combine(helperDirectory, updaterName);
+        if (!File.Exists(updater)) throw new InvalidDataException("The Core update does not contain its updater helper.");
         var executableName = OperatingSystem.IsWindows() ? "Forge.App.exe" : "Forge.App";
         var start = new ProcessStartInfo(updater) { UseShellExecute = false };
         start.ArgumentList.Add(Environment.ProcessId.ToString());

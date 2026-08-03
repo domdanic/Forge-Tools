@@ -28,7 +28,9 @@ try
     CopyTopLevel(appDirectory, backup);
     try
     {
-        DeleteTopLevel(appDirectory);
+        // Overlay the release instead of requiring wholesale directory deletion.
+        // OneDrive and antivirus/indexing providers can deny deletion of synced
+        // directories even when their files remain writable.
         CopyTopLevel(staging + Path.DirectorySeparatorChar, appDirectory);
         var launched = Process.Start(new ProcessStartInfo(executable) { UseShellExecute = true })
             ?? throw new InvalidOperationException("The updated Forge Tools process could not be launched.");
@@ -39,7 +41,6 @@ try
     }
     catch
     {
-        DeleteTopLevel(appDirectory);
         CopyTopLevel(backup + Path.DirectorySeparatorChar, appDirectory);
         Process.Start(new ProcessStartInfo(executable) { UseShellExecute = true });
         throw;
@@ -63,12 +64,6 @@ static void CopyTopLevel(string source, string target)
     foreach (var directory in Directory.EnumerateDirectories(source).Where(path => !Path.GetFileName(path).Equals("data", StringComparison.OrdinalIgnoreCase)))
         CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
     foreach (var file in Directory.EnumerateFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)), true);
-}
-
-static void DeleteTopLevel(string target)
-{
-    foreach (var directory in Directory.EnumerateDirectories(target).Where(path => !Path.GetFileName(path).Equals("data", StringComparison.OrdinalIgnoreCase))) Directory.Delete(directory, true);
-    foreach (var file in Directory.EnumerateFiles(target)) File.Delete(file);
 }
 
 static void CopyDirectory(string source, string target)
