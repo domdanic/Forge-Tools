@@ -62,11 +62,11 @@ public sealed class PluginManager
         }
     }
 
-    private static void CopyDirectory(string source, string target)
+    private static void CopyDirectory(string source, string target, bool overwrite = false)
     {
         Directory.CreateDirectory(target);
-        foreach (var file in Directory.EnumerateFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
-        foreach (var child in Directory.EnumerateDirectories(source)) CopyDirectory(child, Path.Combine(target, Path.GetFileName(child)));
+        foreach (var file in Directory.EnumerateFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)), overwrite);
+        foreach (var child in Directory.EnumerateDirectories(source)) CopyDirectory(child, Path.Combine(target, Path.GetFileName(child)), overwrite);
     }
 
     public IReadOnlyList<InstalledPlugin> Discover()
@@ -130,12 +130,11 @@ public sealed class PluginManager
             if (manifest.Id != plugin.Id) throw new InvalidDataException("Package identity does not match the catalog.");
 
             var target = Path.Combine(PluginsDirectory, plugin.Id);
-            var backup = target + ".backup";
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
-            if (Directory.Exists(target)) Directory.Move(target, backup);
-            try { Directory.Move(staging, target); }
-            catch { if (Directory.Exists(backup)) Directory.Move(backup, target); throw; }
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
+            var backup = Path.Combine(CacheDirectory, "plugin-backups", plugin.Id + "-" + Guid.NewGuid().ToString("N"));
+            if (Directory.Exists(target)) CopyDirectory(target, backup, true);
+            try { CopyDirectory(staging, target, true); }
+            catch { if (Directory.Exists(backup)) CopyDirectory(backup, target, true); throw; }
+            try { if (Directory.Exists(backup)) Directory.Delete(backup, true); } catch { /* OneDrive may retain the safety copy until its lock clears. */ }
         }
         finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
     }
