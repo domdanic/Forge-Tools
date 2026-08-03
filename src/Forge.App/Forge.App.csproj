@@ -23,7 +23,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.1.4</Version>
+    <Version>0.1.5</Version>
     <UseAppHost>true</UseAppHost>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -31,9 +31,9 @@
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
-  <Target Name="CopyUpdater" AfterTargets="Build">
-    <ItemGroup><UpdaterFiles Include="..\Forge.Updater\bin\$(Configuration)\net10.0\Forge.Updater*" /></ItemGroup>
-    <Copy SourceFiles="@(UpdaterFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  <Target Name="CopyUpdater" AfterTargets="Publish">
+    <ItemGroup><UpdaterFiles Include="..\Forge.Updater\bin\$(Configuration)\net10.0\$(RuntimeIdentifier)\Forge.Updater*" /></ItemGroup>
+    <Copy SourceFiles="@(UpdaterFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
