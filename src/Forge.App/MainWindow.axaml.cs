@@ -384,7 +384,14 @@ public sealed partial class MainWindow : Window
         if (spec.Type.Equals("process-category-mappings", StringComparison.OrdinalIgnoreCase))
         {
             settings.TryGetValue(spec.Key, out var saved);
-            var editor = new ProcessCategoryMappingEditor(_twitch, saved.ValueKind == JsonValueKind.Undefined ? null : saved, message => StatusText.Text = message);
+            string? optionsSource = null;
+            if (!string.IsNullOrWhiteSpace(spec.OptionsSource))
+            {
+                var pluginData = Path.GetFullPath(Path.Combine(_plugins.SettingsDirectory, "plugin-data", pluginId));
+                var candidate = Path.GetFullPath(Path.Combine(pluginData, spec.OptionsSource));
+                if (candidate.StartsWith(pluginData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) optionsSource = candidate;
+            }
+            var editor = new ProcessCategoryMappingEditor(_twitch, saved.ValueKind == JsonValueKind.Undefined ? null : saved, optionsSource, message => StatusText.Text = message);
             editor.Changed += (_, _) => SavePlugin(pluginId);
             field = editor;
         }

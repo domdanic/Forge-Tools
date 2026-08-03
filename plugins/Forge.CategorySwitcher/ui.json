@@ -15,6 +15,7 @@
         {
           "type": "process-category-mappings",
           "key": "mappingEntries",
+          "optionsSource": "running-apps.json",
           "label": "Associate a running process with a Twitch category",
           "description": "Search Twitch, save mappings, or switch immediately from a saved card."
         }

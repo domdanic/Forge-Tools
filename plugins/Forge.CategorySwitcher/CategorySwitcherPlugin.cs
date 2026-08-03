@@ -12,7 +12,7 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
     private Task? _worker;
     private readonly Dictionary<string, TwitchCategory> _categoryCache = new(StringComparer.OrdinalIgnoreCase);
 
-    public Task InitializeAsync(IForgeContext context, CancellationToken cancellationToken) { _context = context; return Task.CompletedTask; }
+    public Task InitializeAsync(IForgeContext context, CancellationToken cancellationToken) { _context = context; PublishRunningApps(); return Task.CompletedTask; }
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); _worker = RunAsync(_lifetime.Token); return Task.CompletedTask;
@@ -32,6 +32,7 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         {
             try
             {
+                PublishRunningApps();
                 if (_context!.Settings.Get("enabled", true) && OperatingSystem.IsWindows() && _context.Connections.Twitch.IsConnected)
                 {
                     var process = ActiveWindow.GetProcessName();
@@ -77,6 +78,11 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
     {
         var status = new { process, category, message, at = DateTimeOffset.UtcNow }; File.WriteAllText(Path.Combine(_context!.DataDirectory, "status.json"), JsonSerializer.Serialize(status, new JsonSerializerOptions { WriteIndented = true }));
     }
+    private void PublishRunningApps()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        File.WriteAllText(Path.Combine(_context!.DataDirectory, "running-apps.json"), JsonSerializer.Serialize(WindowsApps.ListProcessNames(), new JsonSerializerOptions { WriteIndented = true }));
+    }
     private static int ParseInt(string value, int fallback) => int.TryParse(value, out var parsed) ? parsed : fallback;
     private List<SavedMapping> LoadMappings()
     {
@@ -106,5 +112,32 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         }
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    }
+
+    private static class WindowsApps
+    {
+        private const int DwmwaCloaked = 14;
+        public static List<string> ListProcessNames()
+        {
+            var processIds = new HashSet<uint>();
+            EnumWindows((window, _) =>
+            {
+                if (!IsWindowVisible(window) || GetWindowTextLength(window) == 0 || GetWindow(window, 4) != IntPtr.Zero) return true;
+                if (DwmGetWindowAttribute(window, DwmwaCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
+                GetWindowThreadProcessId(window, out var processId); processIds.Add(processId); return true;
+            }, IntPtr.Zero);
+            return processIds.Select(processId =>
+            {
+                try { using var process = Process.GetProcessById((int)processId); return process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe"; }
+                catch { return null; }
+            }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList()!;
+        }
+        private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowTextLength(IntPtr window);
+        [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window, uint command);
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+        [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
     }
 }

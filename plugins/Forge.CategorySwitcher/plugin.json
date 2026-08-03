@@ -1,7 +1,7 @@
 {
   "id": "tools.forge.category-switcher",
   "name": "Category Switcher",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Updates your Twitch category from the currently focused application.",
   "author": "Forge Tools",
   "forgeApi": "2",

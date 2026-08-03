@@ -2,8 +2,6 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Forge.PluginSdk;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Forge.App;
@@ -14,6 +12,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
 {
     private readonly TwitchAuthService _twitch;
     private readonly Action<string> _status;
+    private readonly string? _optionsSource;
     private readonly ComboBox _process = new() { MinWidth = 260 };
     private readonly TextBox _query = new() { PlaceholderText = "Search Twitch categories", MinWidth = 260 };
     private readonly ComboBox _categories = new() { MinWidth = 260 };
@@ -23,9 +22,10 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     public List<ProcessCategoryMapping> Mappings { get; } = [];
     public event EventHandler? Changed;
 
-    public ProcessCategoryMappingEditor(TwitchAuthService twitch, JsonElement? saved, Action<string> status)
+    public ProcessCategoryMappingEditor(TwitchAuthService twitch, JsonElement? saved, string? optionsSource, Action<string> status)
     {
         _twitch = twitch;
+        _optionsSource = optionsSource;
         _status = status;
         Spacing = 8;
         Margin = new(0, 7, 0, 14);
@@ -60,18 +60,17 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     private void RefreshProcesses()
     {
         var selected = (_process.SelectedItem as ComboBoxItem)?.Tag as string;
-        var names = OperatingSystem.IsWindows() ? WindowsApps.ListProcessNames() : ListProcesses();
+        var names = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_optionsSource) && File.Exists(_optionsSource))
+        {
+            try { names = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_optionsSource)) ?? []; }
+            catch { _status("The plugin's running-app list could not be read"); }
+        }
         var items = names.Select(name => new ComboBoxItem { Content = name, Tag = name }).ToList();
         _process.ItemsSource = items;
         _process.SelectedItem = items.FirstOrDefault(item => string.Equals(item.Tag as string, selected, StringComparison.OrdinalIgnoreCase));
+        if (items.Count == 0) _status("No visible apps reported by the plugin yet. Make sure its permissions are granted, then refresh.");
     }
-
-    private static List<string> ListProcesses() => Process.GetProcesses().Select(process =>
-    {
-        try { return process.ProcessName; }
-        catch { return null; }
-        finally { process.Dispose(); }
-    }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList()!;
 
     private async Task SearchAsync()
     {
@@ -128,35 +127,4 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         _status($"Editing {mapping.Process}");
     }
 
-    private static class WindowsApps
-    {
-        private const int DwmwaCloaked = 14;
-
-        public static List<string> ListProcessNames()
-        {
-            var processIds = new HashSet<uint>();
-            EnumWindows((window, _) =>
-            {
-                if (!IsWindowVisible(window) || GetWindowTextLength(window) == 0 || GetWindow(window, 4) != IntPtr.Zero) return true;
-                if (DwmGetWindowAttribute(window, DwmwaCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
-                GetWindowThreadProcessId(window, out var processId);
-                if (processId != Environment.ProcessId) processIds.Add(processId);
-                return true;
-            }, IntPtr.Zero);
-
-            return processIds.Select(processId =>
-            {
-                try { using var process = Process.GetProcessById((int)processId); return process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe"; }
-                catch { return null; }
-            }).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name).ToList()!;
-        }
-
-        private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
-        [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
-        [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowTextLength(IntPtr window);
-        [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window, uint command);
-        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-        [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
-    }
 }

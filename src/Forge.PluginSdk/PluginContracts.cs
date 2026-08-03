@@ -98,6 +98,7 @@ public sealed record UiControl
     public required string Label { get; init; }
     public string? Description { get; init; }
     public object? Default { get; init; }
+    public string? OptionsSource { get; init; }
     public List<UiOption> Options { get; init; } = [];
 }
 
