@@ -39,6 +39,34 @@
         "obs.control",
         "storage.local"
       ]
+    },
+    {
+      "id": "tools.forge.timed-announcements",
+      "name": "Timed Announcements",
+      "version": "0.1.0",
+      "description": "Sends activity-aware recurring messages and useful Twitch ad notices.",
+      "author": "Forge Tools",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/timed-announcements-v0.1.0/Forge.TimedAnnouncements-0.1.0.zip",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.4.0",
+      "verified": false,
+      "available": false,
+      "permissions": ["twitch.chat.read", "twitch.chat.write", "twitch.ads.read", "storage.local"]
+    },
+    {
+      "id": "tools.forge.chat-games",
+      "name": "Chat Games",
+      "version": "0.1.0",
+      "description": "A configurable virtual-points economy with slots, roulette, blackjack, and cooperative boss battles.",
+      "author": "Forge Tools",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/chat-games-v0.1.0/Forge.ChatGames-0.1.0.zip",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.4.0",
+      "verified": false,
+      "available": false,
+      "permissions": ["twitch.chat.read", "twitch.chat.write", "storage.local"]
     }
   ]
 }

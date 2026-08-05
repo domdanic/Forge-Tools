@@ -1,0 +1,41 @@
+{
+  "sections": [
+    { "title": "Points economy", "controls": [
+      { "type": "toggle", "key": "economyEnabled", "label": "Enable points and games", "default": true },
+      { "type": "text", "key": "pointsName", "label": "Points name", "default": "Sparks" },
+      { "type": "text", "key": "startingBalance", "label": "Starting balance", "default": "100" },
+      { "type": "text", "key": "earnAmount", "label": "Points earned each interval", "default": "5" },
+      { "type": "text", "key": "earnMinutes", "label": "Earning interval (minutes)", "default": "10" },
+      { "type": "text", "key": "activeMinutes", "label": "Viewer must have chatted within (minutes)", "default": "20" },
+      { "type": "text", "key": "pointsCommand", "label": "Balance command", "default": "!points" },
+      { "type": "text", "key": "leaderboardCommand", "label": "Leaderboard command", "default": "!top" }
+    ]},
+    { "title": "Slots", "controls": [
+      { "type": "toggle", "key": "slotsEnabled", "label": "Enable slots", "default": true },
+      { "type": "text", "key": "slotsCommand", "label": "Command", "default": "!slots" },
+      { "type": "text", "key": "slotsDefaultBet", "label": "Default bet", "default": "10" },
+      { "type": "text", "key": "slotsMaxBet", "label": "Maximum bet", "default": "1000" },
+      { "type": "text", "key": "slotsWinPercent", "label": "Win chance (percent)", "default": "35" },
+      { "type": "text", "key": "slotsPayout", "label": "Typical total payout multiplier", "default": "2" }
+    ]},
+    { "title": "Roulette", "controls": [
+      { "type": "toggle", "key": "rouletteEnabled", "label": "Enable roulette", "default": true },
+      { "type": "text", "key": "rouletteCommand", "label": "Command (!roulette red 10, odd 10, or 17 10)", "default": "!roulette" },
+      { "type": "text", "key": "rouletteMaxBet", "label": "Maximum bet", "default": "1000" }
+    ]},
+    { "title": "Blackjack", "controls": [
+      { "type": "toggle", "key": "blackjackEnabled", "label": "Enable blackjack", "default": true },
+      { "type": "text", "key": "blackjackCommand", "label": "Start command (!blackjack 25)", "default": "!blackjack" },
+      { "type": "text", "key": "blackjackMaxBet", "label": "Maximum bet", "default": "1000" },
+      { "type": "text", "key": "hitCommand", "label": "Hit command", "default": "!hit" },
+      { "type": "text", "key": "standCommand", "label": "Stand command", "default": "!stand" }
+    ]},
+    { "title": "Cooperative boss battle", "controls": [
+      { "type": "toggle", "key": "bossEnabled", "label": "Enable boss battles", "default": true },
+      { "type": "text", "key": "bossCommand", "label": "Attack/status command", "default": "!boss" },
+      { "type": "text", "key": "bossHitPoints", "label": "Boss hit points", "default": "500" },
+      { "type": "text", "key": "bossReward", "label": "Reward pool for defeating it", "default": "1000" },
+      { "type": "text", "key": "bossCooldownSeconds", "label": "Attack cooldown (seconds)", "default": "30" }
+    ]}
+  ]
+}

@@ -83,6 +83,8 @@ internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string>
     {
         if (typeof(T) == typeof(TwitchChatMessage) && !grants.Contains("twitch.chat.read"))
             throw new UnauthorizedAccessException($"{pluginId} requires twitch.chat.read to receive chat messages.");
+        if (typeof(T) == typeof(TwitchAdBreakStarted) && !grants.Contains("twitch.ads.read"))
+            throw new UnauthorizedAccessException($"{pluginId} requires twitch.ads.read to receive ad events.");
         return inner.Subscribe(handler);
     }
 
@@ -96,6 +98,8 @@ public sealed class TwitchConnectionView(TwitchAuthService auth) : ITwitchConnec
     public Task<TwitchCategory?> FindCategoryAsync(string exactName, CancellationToken cancellationToken = default) => auth.FindCategoryAsync(exactName, cancellationToken);
     public Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default) => auth.GetChannelAsync(cancellationToken);
     public Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default) => auth.UpdateCategoryAsync(categoryId, cancellationToken);
+    public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => auth.SendChatMessageAsync(message, cancellationToken);
+    public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) => auth.GetAdScheduleAsync(cancellationToken);
 }
 
 public sealed class JsonPluginSettings(string path) : IPluginSettings
@@ -134,6 +138,8 @@ internal sealed class PermissionedConnections(string pluginId, IReadOnlySet<stri
         public Task<TwitchCategory?> FindCategoryAsync(string exactName, CancellationToken cancellationToken = default) { Require("twitch.channel.read"); return inner.FindCategoryAsync(exactName, cancellationToken); }
         public Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default) { Require("twitch.channel.read"); return inner.GetChannelAsync(cancellationToken); }
         public Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default) { Require("twitch.channel.manage.broadcast"); return inner.UpdateCategoryAsync(categoryId, cancellationToken); }
+        public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) { Require("twitch.chat.write"); return inner.SendChatMessageAsync(message, cancellationToken); }
+        public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) { Require("twitch.ads.read"); return inner.GetAdScheduleAsync(cancellationToken); }
         private void Require(string permission) { if (!grants.Contains(permission)) throw new UnauthorizedAccessException($"{pluginId} does not have {permission} permission."); }
     }
 }
