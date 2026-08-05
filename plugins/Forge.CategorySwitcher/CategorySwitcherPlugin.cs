@@ -79,7 +79,7 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
                         var mappings = LoadMappings();
                         var mapping = mappings.FirstOrDefault(item => item.Process.Equals(candidate, StringComparison.OrdinalIgnoreCase));
                         var categoryName = mapping?.CategoryName ?? _context.Settings.Get("fallbackCategory", "").Trim();
-                        if (!string.IsNullOrWhiteSpace(categoryName) && (! _context.Settings.Get("onlyWhileStreaming", true) || await IsStreamingAsync(cancellationToken)))
+                        if (!string.IsNullOrWhiteSpace(categoryName) && await CanUpdateCategoryAsync(cancellationToken))
                         {
                             var category = mapping is not null && !string.IsNullOrWhiteSpace(mapping.CategoryId)
                                 ? new TwitchCategory(mapping.CategoryId, mapping.CategoryName)
@@ -103,9 +103,13 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         }
     }
 
-    private async Task<bool> IsStreamingAsync(CancellationToken cancellationToken)
+    private async Task<bool> CanUpdateCategoryAsync(CancellationToken cancellationToken)
     {
-        if (!_context!.Connections.Obs.IsConnected) return false;
+        var mode = _context!.Settings.Get("updateWhen", "").Trim().ToLowerInvariant();
+        if (mode.Length == 0) mode = _context.Settings.Get("onlyWhileStreaming", true) ? "streaming" : "always";
+        if (mode == "always") return true;
+        if (!_context.Connections.Obs.IsConnected) return false;
+        if (mode == "obs-connected") return true;
         var result = await _context.Connections.Obs.RequestAsync("GetStreamStatus", cancellationToken: cancellationToken);
         return result.ValueKind == JsonValueKind.Object && result.TryGetProperty("outputActive", out var active) && active.GetBoolean();
     }

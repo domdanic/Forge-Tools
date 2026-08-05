@@ -4,7 +4,17 @@
       "title": "Behavior",
       "controls": [
         { "type": "toggle", "key": "enabled", "label": "Enable automatic category switching", "default": true },
-        { "type": "toggle", "key": "onlyWhileStreaming", "label": "Only update while OBS is streaming", "default": true },
+        {
+          "type": "select",
+          "key": "updateWhen",
+          "label": "When category switching is allowed",
+          "default": "streaming",
+          "options": [
+            { "label": "Only while OBS is streaming", "value": "streaming" },
+            { "label": "Whenever OBS is connected", "value": "obs-connected" },
+            { "label": "Always", "value": "always" }
+          ]
+        },
         { "type": "text", "key": "debounceSeconds", "label": "Wait before switching (seconds)", "default": "5" },
         { "type": "text", "key": "fallbackCategory", "label": "Optional category for unmapped applications", "default": "" }
       ]
