@@ -20,6 +20,9 @@ Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The co
 - Plugin lifecycle (`Initialize`, `Start`, `Stop`, `Dispose`) with collectible load contexts and lifecycle-exception containment.
 - Typed event bus for Forge, profile, OBS, and Twitch events.
 - Stable category-change events that let plugins cooperate without depending directly on one another.
+- Plugin minimum-Core requirements enforced in the catalogue, installer, and runtime.
+- Per-plugin JSON settings export/import without credentials; Capture Switcher can remap OBS source names during import.
+- Permission-gated Twitch EventSub chat messages for optional plugin commands.
 - Enable, disable, permission review, update, and uninstall controls.
 - Per-profile settings and permission grants.
 - Sanitized local logging and credential-free diagnostics bundles.
@@ -37,7 +40,7 @@ Copy `templates/Forge.PluginTemplate`, change its ID and metadata, and implement
 
 Plugins declare all requested permissions in `plugin.json`. Forge does not expose shared connection services until the user grants those permissions.
 
-Forge's maintained plugins currently include Category Switcher and Capture Switcher. Category Switcher publishes a confirmed `TwitchCategoryChanged` event; Capture Switcher consumes that event to retarget existing OBS Game Capture and Application Audio Capture sources.
+Forge's maintained plugins currently include Category Switcher and Capture Switcher. Category Switcher publishes a confirmed `TwitchCategoryChanged` event and supports optional broadcaster/moderator chat commands; Capture Switcher consumes the category event to retarget existing OBS Game Capture and Application Audio Capture sources.
 
 Declarative plugins contain no executable code and are the safe default for open community distribution. Executable .NET plugins currently run in-process and must be treated as trusted code: service permissions prevent accidental API access but cannot sandbox arbitrary operating-system calls. A future out-of-process worker is required before Forge should advertise unreviewed executable plugins as isolated.
 

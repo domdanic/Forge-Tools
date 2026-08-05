@@ -8,6 +8,7 @@ using System.Text.Json;
 namespace Forge.App;
 
 public sealed record InstalledPlugin(PluginManifest Manifest, PluginUi Ui, string Directory);
+public sealed record PluginSettingsPackage(int FormatVersion, string PluginId, string PluginVersion, DateTimeOffset ExportedAt, Dictionary<string, JsonElement> Settings);
 
 public sealed class PluginManager
 {
@@ -111,6 +112,7 @@ public sealed class PluginManager
     public async Task InstallAsync(CatalogPlugin plugin)
     {
         if (!plugin.Available) throw new InvalidOperationException("This plugin has not been released yet.");
+        EnsureCoreCompatibility(plugin.MinimumCoreVersion, plugin.Name);
         var packageBytes = await _http.GetByteArrayAsync(plugin.PackageUrl);
         var actualHash = Convert.ToHexString(SHA256.HashData(packageBytes));
         if (!actualHash.Equals(plugin.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -136,6 +138,7 @@ public sealed class PluginManager
                 ?? throw new InvalidDataException("Plugin manifest is missing.");
             if (!ValidateManifest(manifest, out var validationError)) throw new InvalidDataException(validationError);
             if (manifest.Id != plugin.Id) throw new InvalidDataException("Package identity does not match the catalog.");
+            EnsureCoreCompatibility(manifest.MinimumCoreVersion, manifest.Name);
 
             var target = Path.Combine(PluginsDirectory, plugin.Id);
             var backup = Path.Combine(CacheDirectory, "plugin-backups", plugin.Id + "-" + Guid.NewGuid().ToString("N"));
@@ -157,6 +160,22 @@ public sealed class PluginManager
 
     public void SaveSettings(string pluginId, Dictionary<string, object?> settings) =>
         File.WriteAllText(Path.Combine(SettingsDirectory, pluginId + ".json"), JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+
+    public void SaveSettings(string pluginId, Dictionary<string, JsonElement> settings) =>
+        File.WriteAllText(Path.Combine(SettingsDirectory, pluginId + ".json"), JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+
+    public PluginSettingsPackage CreateSettingsExport(InstalledPlugin plugin) =>
+        new(1, plugin.Manifest.Id, plugin.Manifest.Version, DateTimeOffset.UtcNow, LoadSettings(plugin.Manifest.Id));
+
+    public static PluginSettingsPackage ReadSettingsExport(string json)
+    {
+        var package = JsonSerializer.Deserialize<PluginSettingsPackage>(json, JsonOptions)
+            ?? throw new InvalidDataException("The settings export is empty or invalid.");
+        if (package.FormatVersion != 1) throw new InvalidDataException($"Unsupported settings export format {package.FormatVersion}.");
+        if (string.IsNullOrWhiteSpace(package.PluginId)) throw new InvalidDataException("The settings export has no plugin identity.");
+        if (package.Settings is null) throw new InvalidDataException("The settings export contains no settings object.");
+        return package;
+    }
 
     public void Remove(string pluginId)
     {
@@ -183,10 +202,20 @@ public sealed class PluginManager
         if (!System.Text.RegularExpressions.Regex.IsMatch(manifest.Id ?? "", "^[a-z0-9]+(?:[.-][a-z0-9]+)+$")) { error = "Plugin ID must be a reverse-domain-style lowercase identifier."; return false; }
         if (string.IsNullOrWhiteSpace(manifest.Name)) { error = "Plugin name is required."; return false; }
         if (!Version.TryParse(manifest.Version, out _)) { error = "Plugin version must be numeric semantic version text."; return false; }
+        if (!string.IsNullOrWhiteSpace(manifest.MinimumCoreVersion) && !Version.TryParse(manifest.MinimumCoreVersion, out _)) { error = "Minimum Core version must be numeric semantic version text."; return false; }
         if (manifest.ForgeApi is not ("1" or "2")) { error = $"Plugin requires unsupported Forge API {manifest.ForgeApi}."; return false; }
         var prefixes = new[] { "storage.", "obs.", "twitch.", "network.", "filesystem.", "system." };
         if (manifest.Permissions.Any(permission => !prefixes.Any(prefix => permission.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))) { error = "Plugin declares an unknown permission."; return false; }
         error = ""; return true;
+    }
+
+    public static bool IsCoreCompatible(string? minimumCoreVersion) =>
+        string.IsNullOrWhiteSpace(minimumCoreVersion) || Version.TryParse(minimumCoreVersion, out var minimum) && CoreUpdateService.CurrentVersion >= minimum;
+
+    public static void EnsureCoreCompatibility(string? minimumCoreVersion, string pluginName)
+    {
+        if (!IsCoreCompatible(minimumCoreVersion))
+            throw new InvalidOperationException($"{pluginName} requires Forge Tools {minimumCoreVersion} or newer. Update Core first.");
     }
 
     private static void VerifyPublisherSignature(CatalogPlugin plugin, byte[] packageBytes)

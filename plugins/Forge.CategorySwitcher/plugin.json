@@ -1,10 +1,11 @@
 {
   "id": "tools.forge.category-switcher",
   "name": "Category Switcher",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Updates your Twitch category from the currently focused application.",
   "author": "Forge Tools",
   "forgeApi": "2",
+  "minimumCoreVersion": "0.3.0",
   "entryAssembly": "Forge.CategorySwitcher.dll",
   "entryType": "Forge.CategorySwitcher.CategorySwitcherPlugin",
   "ui": "ui.json",
@@ -13,6 +14,7 @@
     "obs.read",
     "twitch.channel.read",
     "twitch.channel.manage.broadcast",
+    "twitch.chat.read",
     "storage.local"
   ]
 }

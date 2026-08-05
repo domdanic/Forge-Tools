@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
     private readonly ForgeLogger _logger;
     private readonly CredentialStore _credentials;
     private readonly ObsWebSocketService _obs;
+    private readonly TwitchChatService _twitchChat;
     private PermissionStore _permissions;
     private PluginRuntimeManager _runtime;
     private readonly CoreUpdateService _updates;
@@ -36,6 +37,7 @@ public sealed partial class MainWindow : Window
         _logger = new(_plugins.LogsDirectory);
         _credentials = new(_plugins.CredentialsDirectory);
         _obs = new(_events, _logger);
+        _twitchChat = new(_twitch, _events, _logger);
         _permissions = new(_plugins.SettingsDirectory);
         _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory);
         _updates = new(_plugins.CacheDirectory);
@@ -43,7 +45,7 @@ public sealed partial class MainWindow : Window
         _plugins.Profiles.Changed += async (_, changed) => await _events.PublishAsync(changed);
         InitializeComponent();
         Opened += async (_, _) => await RefreshAsync();
-        Closed += async (_, _) => { await _events.PublishAsync(new ForgeStopping(DateTimeOffset.UtcNow)); await _runtime.DisposeAsync(); await _obs.DisposeAsync(); };
+        Closed += async (_, _) => { await _events.PublishAsync(new ForgeStopping(DateTimeOffset.UtcNow)); await _runtime.DisposeAsync(); await _twitchChat.DisposeAsync(); await _obs.DisposeAsync(); };
     }
 
     private async Task RefreshAsync()
@@ -152,6 +154,7 @@ public sealed partial class MainWindow : Window
         {
             var identity = await _twitch.RestoreAsync();
             SetTwitchIdentity(identity);
+            await UpdateTwitchChatStateAsync();
         }
         catch (Exception ex)
         {
@@ -163,6 +166,7 @@ public sealed partial class MainWindow : Window
     {
         if (_twitchAction?.Tag is TwitchIdentity)
         {
+            await _twitchChat.StopAsync();
             await _twitch.SignOutAsync();
             SetTwitchIdentity(null);
             StatusText.Text = "Signed out of Twitch";
@@ -193,6 +197,7 @@ public sealed partial class MainWindow : Window
             dialog.Close();
             await showing;
             SetTwitchIdentity(identity);
+            await UpdateTwitchChatStateAsync();
             StatusText.Text = $"Connected to Twitch as {identity.Login}";
         }
         catch (OperationCanceledException) { SetTwitchIdentity(null); }
@@ -207,6 +212,16 @@ public sealed partial class MainWindow : Window
         _twitchAction.Content = identity is null ? "Sign in with Twitch" : "Sign out";
         _twitchStatus.Text = identity is null ? "Signed out" : $"Connected as {identity.Login}";
         _twitchStatus.Foreground = identity is null ? Brushes.Goldenrod : Brushes.LightGreen;
+    }
+
+    private async Task UpdateTwitchChatStateAsync()
+    {
+        var shouldConnect = _twitch.Identity is not null && _plugins.Discover().Any(plugin =>
+            _plugins.IsEnabled(plugin.Manifest.Id) &&
+            plugin.Manifest.Permissions.Contains("twitch.chat.read", StringComparer.OrdinalIgnoreCase) &&
+            _permissions.Allows(plugin.Manifest.Id, "twitch.chat.read"));
+        if (shouldConnect) await _twitchChat.StartAsync();
+        else await _twitchChat.StopAsync();
     }
 
     private void SaveConnections(string host, string port, bool autoConnect, string channel) =>
@@ -234,10 +249,11 @@ public sealed partial class MainWindow : Window
             foreach (var item in catalog.Plugins)
             {
                 var current = installed.FirstOrDefault(x => x.Manifest.Id == item.Id);
-                var action = !item.Available ? "Coming soon" : current is null ? "Install" : current.Manifest.Version == item.Version ? "Installed" : "Update";
+                var compatible = PluginManager.IsCoreCompatible(item.MinimumCoreVersion);
+                var action = !compatible ? $"Requires Core {item.MinimumCoreVersion}" : !item.Available ? "Coming soon" : current is null ? "Install" : current.Manifest.Version == item.Version ? "Installed" : "Update";
                 var row = new Grid { ColumnDefinitions = new("*,Auto"), Background = PanelBrush, Margin = new(0, 0, 0, 10) };
                 row.Children.Add(new TextBlock { Text = $"{item.Name}  {item.Version}\n{item.Description}", Margin = new(14), TextWrapping = TextWrapping.Wrap });
-                var button = Button(action); button.IsEnabled = action is not "Installed" and not "Coming soon"; button.Tag = item; button.SetValue(Grid.ColumnProperty, 1); button.Click += Install_Click; row.Children.Add(button);
+                var button = Button(action); button.IsEnabled = compatible && action is not "Installed" and not "Coming soon"; button.Tag = item; button.SetValue(Grid.ColumnProperty, 1); button.Click += Install_Click; row.Children.Add(button);
                 _catalogList.Children.Add(row);
             }
         }
@@ -274,19 +290,29 @@ public sealed partial class MainWindow : Window
         var panel = NewPanel();
         panel.Children.Add(Heading(plugin.Manifest.Name, 26));
         panel.Children.Add(Secondary($"{plugin.Manifest.Description}\n{plugin.Manifest.Author} · v{plugin.Manifest.Version}"));
+        if (!PluginManager.IsCoreCompatible(plugin.Manifest.MinimumCoreVersion))
+        {
+            panel.Children.Add(new TextBlock { Text = $"This plugin requires Forge Tools {plugin.Manifest.MinimumCoreVersion} or newer. Update Core to enable it.", Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap });
+            AddTab(plugin.Manifest.Name, panel);
+            return;
+        }
         var management = new StackPanel { Orientation = Orientation.Horizontal };
         var enabled = new CheckBox { Content = "Enabled", IsChecked = _plugins.IsEnabled(plugin.Manifest.Id), VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 12, 0) };
-        enabled.IsCheckedChanged += async (_, _) => { _plugins.SetEnabled(plugin.Manifest.Id, enabled.IsChecked == true); await _runtime.StartAsync(_plugins.Discover().Where(x => _plugins.IsEnabled(x.Manifest.Id))); StatusText.Text = $"{plugin.Manifest.Name} {(enabled.IsChecked == true ? "enabled" : "disabled")}"; };
+        enabled.IsCheckedChanged += async (_, _) => { _plugins.SetEnabled(plugin.Manifest.Id, enabled.IsChecked == true); await _runtime.StartAsync(_plugins.Discover().Where(x => _plugins.IsEnabled(x.Manifest.Id))); await UpdateTwitchChatStateAsync(); StatusText.Text = $"{plugin.Manifest.Name} {(enabled.IsChecked == true ? "enabled" : "disabled")}"; };
         var uninstall = Button("Uninstall");
         uninstall.Click += async (_, _) => { if (!await ConfirmAsync("Uninstall plugin", $"Remove {plugin.Manifest.Name}? Its profile settings will be kept.", "Remove")) return; await _runtime.StopAsync(); _plugins.Remove(plugin.Manifest.Id); await RefreshAsync(); };
-        management.Children.Add(enabled); management.Children.Add(uninstall); panel.Children.Add(management);
+        var export = Button("Export settings");
+        export.Click += async (_, _) => await ExportPluginSettingsAsync(plugin);
+        var import = Button("Import settings");
+        import.Click += async (_, _) => await ImportPluginSettingsAsync(plugin);
+        management.Children.Add(enabled); management.Children.Add(export); management.Children.Add(import); management.Children.Add(uninstall); panel.Children.Add(management);
         if (plugin.Manifest.Permissions.Length > 0)
         {
             panel.Children.Add(Heading("Permissions", 17, new(0, 8, 0, 4)));
             panel.Children.Add(Secondary(string.Join("\n", plugin.Manifest.Permissions.Select(x => "• " + x))));
             var granted = plugin.Manifest.Permissions.All(x => _permissions.Allows(plugin.Manifest.Id, x));
             var permissionButton = Button(granted ? "Permissions granted" : "Grant requested permissions"); permissionButton.IsEnabled = !granted; permissionButton.HorizontalAlignment = HorizontalAlignment.Left;
-            permissionButton.Click += async (_, _) => { _permissions.Set(plugin.Manifest.Id, plugin.Manifest.Permissions); permissionButton.Content = "Permissions granted"; permissionButton.IsEnabled = false; await _runtime.StartAsync(_plugins.Discover()); StatusText.Text = $"Permissions granted to {plugin.Manifest.Name}"; };
+            permissionButton.Click += async (_, _) => { _permissions.Set(plugin.Manifest.Id, plugin.Manifest.Permissions); permissionButton.Content = "Permissions granted"; permissionButton.IsEnabled = false; await _runtime.StartAsync(_plugins.Discover()); await UpdateTwitchChatStateAsync(); StatusText.Text = $"Permissions granted to {plugin.Manifest.Name}"; };
             panel.Children.Add(permissionButton);
         }
         var settings = _plugins.LoadSettings(plugin.Manifest.Id);
@@ -427,6 +453,117 @@ public sealed partial class MainWindow : Window
     {
         var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, _ => null });
         _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
+    }
+
+    private async Task ExportPluginSettingsAsync(InstalledPlugin plugin)
+    {
+        try
+        {
+            SavePlugin(plugin.Manifest.Id);
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = $"Export {plugin.Manifest.Name} settings",
+                SuggestedFileName = plugin.Manifest.Id + ".forge-settings.json",
+                FileTypeChoices = [new FilePickerFileType("Forge plugin settings") { Patterns = ["*.forge-settings.json", "*.json"] }]
+            });
+            if (file is null) return;
+            await using var stream = await file.OpenWriteAsync();
+            if (stream.CanSeek) stream.SetLength(0);
+            await JsonSerializer.SerializeAsync(stream, _plugins.CreateSettingsExport(plugin), new JsonSerializerOptions { WriteIndented = true });
+            StatusText.Text = $"Exported {plugin.Manifest.Name} settings";
+        }
+        catch (Exception ex) { await ShowNoticeAsync("Settings export failed", ex.Message); }
+    }
+
+    private async Task ImportPluginSettingsAsync(InstalledPlugin plugin)
+    {
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = $"Import {plugin.Manifest.Name} settings",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Forge plugin settings") { Patterns = ["*.forge-settings.json", "*.json"] }]
+            });
+            var file = files.FirstOrDefault();
+            if (file is null) return;
+            await using var stream = await file.OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            var package = PluginManager.ReadSettingsExport(await reader.ReadToEndAsync());
+            if (!string.Equals(package.PluginId, plugin.Manifest.Id, StringComparison.Ordinal))
+                throw new InvalidDataException($"These settings belong to {package.PluginId}, not {plugin.Manifest.Id}.");
+
+            var imported = package.Settings;
+            if (plugin.Manifest.Id == "tools.forge.capture-switcher")
+            {
+                imported = await RemapCaptureImportAsync(imported);
+                if (imported.Count == 0) return;
+            }
+
+            var mode = await ChooseImportModeAsync(plugin.Manifest.Name);
+            if (mode is null) return;
+            if (mode == "merge")
+            {
+                var merged = _plugins.LoadSettings(plugin.Manifest.Id);
+                foreach (var pair in imported) merged[pair.Key] = pair.Value;
+                imported = merged;
+            }
+            _plugins.SaveSettings(plugin.Manifest.Id, imported);
+            await RefreshAsync();
+            StatusText.Text = $"Imported {plugin.Manifest.Name} settings";
+        }
+        catch (Exception ex) { await ShowNoticeAsync("Settings import failed", ex.Message); }
+    }
+
+    private async Task<string?> ChooseImportModeAsync(string pluginName)
+    {
+        string? result = null;
+        var replace = Button("Replace existing");
+        var merge = Button("Merge");
+        var cancel = Button("Cancel");
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { replace, merge, cancel } };
+        var dialog = new Window { Title = "Import settings", Width = 480, SizeToContent = SizeToContent.Height, CanResize = false, Content = new StackPanel { Margin = new(22), Children = { new TextBlock { Text = $"How should imported {pluginName} settings be applied?", TextWrapping = TextWrapping.Wrap, Margin = new(0, 0, 0, 14) }, actions } } };
+        replace.Click += (_, _) => { result = "replace"; dialog.Close(); };
+        merge.Click += (_, _) => { result = "merge"; dialog.Close(); };
+        cancel.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+        return result;
+    }
+
+    private async Task<Dictionary<string, JsonElement>> RemapCaptureImportAsync(Dictionary<string, JsonElement> imported)
+    {
+        if (!imported.TryGetValue("mappingEntries", out var entries) || entries.ValueKind != JsonValueKind.Array) return imported;
+        var mappings = entries.Deserialize<List<CaptureSwitchMapping>>() ?? [];
+        var oldVideo = mappings.Select(item => item.VideoInput).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+        var oldAudio = mappings.Select(item => item.AudioInput).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+        var keep = new CheckBox { Content = "Keep the source names from the export", IsChecked = false };
+        var video = new TextBox { Text = oldVideo, PlaceholderText = "OBS Game Capture source name" };
+        var skipVideo = new CheckBox { Content = "Skip Game Capture sources", IsChecked = false };
+        var audio = new TextBox { Text = oldAudio, PlaceholderText = "OBS Application Audio Capture source name" };
+        var skipAudio = new CheckBox { Content = "Skip Application Audio Capture sources", IsChecked = false };
+        var apply = Button("Continue import");
+        var cancel = Button("Cancel");
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { apply, cancel } };
+        var accepted = false;
+        var dialog = new Window
+        {
+            Title = "Match OBS source names", Width = 520, SizeToContent = SizeToContent.Height, CanResize = false,
+            Content = new StackPanel { Margin = new(22), Spacing = 8, Children = { new TextBlock { Text = "Enter the OBS source names on this computer. Each imported capture rule will be updated to use them.", TextWrapping = TextWrapping.Wrap }, keep, new TextBlock { Text = "Game Capture source" }, video, skipVideo, new TextBlock { Text = "Application Audio Capture source" }, audio, skipAudio, actions } }
+        };
+        apply.Click += (_, _) => { accepted = true; dialog.Close(); };
+        cancel.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
+        if (!accepted) return [];
+        if (keep.IsChecked != true)
+        {
+            mappings = mappings.Select(item => item with
+            {
+                VideoInput = skipVideo.IsChecked == true ? null : string.IsNullOrWhiteSpace(video.Text) ? null : video.Text.Trim(),
+                AudioInput = skipAudio.IsChecked == true ? null : string.IsNullOrWhiteSpace(audio.Text) ? null : audio.Text.Trim()
+            }).ToList();
+            imported["mappingEntries"] = JsonSerializer.SerializeToElement(mappings);
+        }
+        return imported;
     }
 
     private async Task ShowNoticeAsync(string title, string message)

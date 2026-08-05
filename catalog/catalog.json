@@ -9,6 +9,7 @@
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/category-switcher-v0.3.0/Forge.CategorySwitcher-0.3.0.zip",
       "sha256": "5259F294D1E606DFE509E63ABDA378FE3CF71DABC0F026FE212CEA65E0B63D23",
       "forgeApi": "2",
+      "minimumCoreVersion": "0.3.0",
       "verified": false,
       "available": true,
       "permissions": [
@@ -16,6 +17,7 @@
         "obs.read",
         "twitch.channel.read",
         "twitch.channel.manage.broadcast",
+        "twitch.chat.read",
         "storage.local"
       ]
     },
@@ -28,6 +30,7 @@
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/capture-switcher-v0.1.0/Forge.CaptureSwitcher-0.1.0.zip",
       "sha256": "E35C87FED7262CFDBE70A8AF23122D41F2CD659B9295BB3A8608E3B2936E293E",
       "forgeApi": "2",
+      "minimumCoreVersion": "0.3.0",
       "verified": false,
       "available": true,
       "permissions": [

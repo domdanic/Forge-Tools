@@ -10,20 +10,56 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
     private IForgeContext? _context;
     private CancellationTokenSource? _lifetime;
     private Task? _worker;
+    private IDisposable? _chatSubscription;
+    private readonly SemaphoreSlim _categoryGate = new(1, 1);
+    private readonly Dictionary<string, DateTimeOffset> _commandCooldowns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TwitchCategory> _categoryCache = new(StringComparer.OrdinalIgnoreCase);
 
     public Task InitializeAsync(IForgeContext context, CancellationToken cancellationToken) { _context = context; PublishRunningApps(); return Task.CompletedTask; }
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); _worker = RunAsync(_lifetime.Token); return Task.CompletedTask;
+        _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _chatSubscription = _context!.Events.Subscribe<TwitchChatMessage>(HandleChatMessageAsync);
+        _worker = RunAsync(_lifetime.Token); return Task.CompletedTask;
     }
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _chatSubscription?.Dispose(); _chatSubscription = null;
         if (_lifetime is null) return; _lifetime.Cancel();
         if (_worker is not null) try { await _worker.WaitAsync(cancellationToken); } catch (OperationCanceledException) { }
         _lifetime.Dispose(); _lifetime = null;
     }
     public async ValueTask DisposeAsync() { if (_lifetime is not null) await StopAsync(CancellationToken.None); }
+
+    private async Task HandleChatMessageAsync(TwitchChatMessage message)
+    {
+        var command = message.Text.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(command)) return;
+        var mapping = LoadMappings().FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.ChatCommand) && item.ChatCommand.Equals(command, StringComparison.OrdinalIgnoreCase));
+        if (mapping is null || !CanUseCommand(mapping.CommandAccess, message)) return;
+        if (mapping.CommandAccess.Equals("everyone", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_commandCooldowns.TryGetValue(mapping.ChatCommand, out var last) && DateTimeOffset.UtcNow - last < TimeSpan.FromSeconds(10)) return;
+            _commandCooldowns[mapping.ChatCommand] = DateTimeOffset.UtcNow;
+        }
+
+        await _categoryGate.WaitAsync();
+        try
+        {
+            var channel = await _context!.Connections.Twitch.GetChannelAsync();
+            if (channel?.CategoryId != mapping.CategoryId) await _context.Connections.Twitch.UpdateCategoryAsync(mapping.CategoryId);
+            WriteStatus(mapping.Process, mapping.CategoryName, $"Chat command used by {message.UserLogin}");
+            await _context.Events.PublishAsync(new TwitchCategoryChanged(mapping.CategoryId, mapping.CategoryName, _context.PluginId + ".chat", DateTimeOffset.UtcNow));
+        }
+        finally { _categoryGate.Release(); }
+    }
+
+    private static bool CanUseCommand(string access, TwitchChatMessage message) => access.ToLowerInvariant() switch
+    {
+        "everyone" => true,
+        "broadcaster" => message.IsBroadcaster,
+        _ => message.IsBroadcaster || message.IsModerator
+    };
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -105,7 +141,7 @@ public sealed class CategorySwitcherPlugin : IForgePlugin
         return result;
     }
 
-    private sealed record SavedMapping(string Process, string CategoryId, string CategoryName);
+    private sealed record SavedMapping(string Process, string CategoryId, string CategoryName, string ChatCommand = "", string CommandAccess = "moderators");
 
     private static class ActiveWindow
     {

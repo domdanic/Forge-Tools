@@ -34,6 +34,7 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
         {
             try
             {
+                PluginManager.EnsureCoreCompatibility(installed.Manifest.MinimumCoreVersion, installed.Manifest.Name);
                 var requested = installed.Manifest.Permissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var granted = _permissions.Get(installed.Manifest.Id);
                 if (!requested.IsSubsetOf(granted)) { await _log.WriteAsync("WARN", installed.Manifest.Id, "Plugin not started because requested permissions have not been granted."); continue; }
@@ -52,7 +53,7 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
                 if (type is null || Activator.CreateInstance(type) is not IForgePlugin plugin) throw new InvalidDataException("No IForgePlugin entry type was found.");
                 var data = Path.Combine(_settingsDirectory, "plugin-data", installed.Manifest.Id); Directory.CreateDirectory(data);
                 var settings = new JsonPluginSettings(Path.Combine(_settingsDirectory, installed.Manifest.Id + ".json"));
-                await plugin.InitializeAsync(new ForgeContext(installed.Manifest.Id, data, granted, _events, new PermissionedConnections(installed.Manifest.Id, granted, _connections), settings), cancellationToken);
+                await plugin.InitializeAsync(new ForgeContext(installed.Manifest.Id, data, granted, new PermissionedEventBus(installed.Manifest.Id, granted, _events), new PermissionedConnections(installed.Manifest.Id, granted, _connections), settings), cancellationToken);
                 await plugin.StartAsync(cancellationToken); _loaded.Add(new(installed.Manifest.Id, plugin, loadContext));
                 await _log.WriteAsync("INFO", installed.Manifest.Id, "Plugin started.");
             }
@@ -74,6 +75,18 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
     public async ValueTask DisposeAsync() => await StopAsync();
     private sealed record LoadedPlugin(string Id, IForgePlugin Plugin, AssemblyLoadContext Context);
     private sealed record ForgeContext(string PluginId, string DataDirectory, IReadOnlySet<string> GrantedPermissions, IForgeEventBus Events, IForgeConnections Connections, IPluginSettings Settings) : IForgeContext;
+}
+
+internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string> grants, IForgeEventBus inner) : IForgeEventBus
+{
+    public IDisposable Subscribe<T>(Func<T, Task> handler)
+    {
+        if (typeof(T) == typeof(TwitchChatMessage) && !grants.Contains("twitch.chat.read"))
+            throw new UnauthorizedAccessException($"{pluginId} requires twitch.chat.read to receive chat messages.");
+        return inner.Subscribe(handler);
+    }
+
+    public Task PublishAsync<T>(T message, CancellationToken cancellationToken = default) => inner.PublishAsync(message, cancellationToken);
 }
 
 public sealed class ForgeConnections(IObsConnection obs, ITwitchConnection twitch) : IForgeConnections { public IObsConnection Obs { get; } = obs; public ITwitchConnection Twitch { get; } = twitch; }

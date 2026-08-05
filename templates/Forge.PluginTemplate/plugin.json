@@ -5,6 +5,7 @@
   "description": "Describe the plugin.",
   "author": "Your Name",
   "forgeApi": "1",
+  "minimumCoreVersion": "0.3.0",
   "entryAssembly": "Forge.PluginTemplate.dll",
   "entryType": "Forge.PluginTemplate.Plugin",
   "ui": "ui.json",

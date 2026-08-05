@@ -118,6 +118,20 @@ public sealed class TwitchAuthService
         using var response = await SendHelixAsync(HttpMethod.Patch, $"channels?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", new { game_id = categoryId }, cancellationToken);
     }
 
+    public async Task CreateChatSubscriptionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (!Identity.Scopes.Contains("user:read:chat", StringComparer.Ordinal))
+            throw new InvalidOperationException("Reconnect Twitch to grant chat-reading permission.");
+        using var response = await SendHelixAsync(HttpMethod.Post, "eventsub/subscriptions", new
+        {
+            type = "channel.chat.message",
+            version = "1",
+            condition = new { broadcaster_user_id = Identity.UserId, user_id = Identity.UserId },
+            transport = new { method = "websocket", session_id = sessionId }
+        }, cancellationToken);
+    }
+
     private async Task<HttpResponseMessage> SendHelixAsync(HttpMethod method, string relative, object? body, CancellationToken cancellationToken)
     {
         if (_tokens is null) throw new InvalidOperationException("Twitch is not connected.");

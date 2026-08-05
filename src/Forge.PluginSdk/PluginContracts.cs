@@ -11,6 +11,7 @@ public sealed record PluginManifest
     public string Description { get; init; } = "";
     public string Author { get; init; } = "";
     public string ForgeApi { get; init; } = "1";
+    public string? MinimumCoreVersion { get; init; }
     public string? Ui { get; init; }
     public string? Homepage { get; init; }
     public string? UpdateManifestUrl { get; init; }
@@ -84,6 +85,15 @@ public sealed record TwitchCategoryChanged(
     string CategoryName,
     string Source,
     DateTimeOffset At);
+public sealed record TwitchChatMessage(
+    string MessageId,
+    string UserId,
+    string UserLogin,
+    string UserName,
+    string Text,
+    bool IsBroadcaster,
+    bool IsModerator,
+    DateTimeOffset At);
 
 public sealed record PluginUi
 {
@@ -129,6 +139,7 @@ public sealed record CatalogPlugin
     public required string PackageUrl { get; init; }
     public required string Sha256 { get; init; }
     public string ForgeApi { get; init; } = "1";
+    public string? MinimumCoreVersion { get; init; }
     public bool Verified { get; init; }
     public string[] Permissions { get; init; } = [];
     public bool Available { get; init; } = true;
