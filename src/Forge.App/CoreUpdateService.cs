@@ -77,8 +77,13 @@ public sealed class CoreUpdateService
 
         // Run the helper shipped by the incoming release from portable data. This lets
         // updater fixes take effect before any live application files are replaced.
-        var helperDirectory = Path.Combine(_cacheDirectory, "updater-runtime");
-        if (Directory.Exists(helperDirectory)) Directory.Delete(helperDirectory, true);
+        // Never reuse a fixed helper directory. The previous updater, antivirus, or
+        // a sync/indexing provider may briefly retain a handle to one of its runtime
+        // files after Forge restarts. A stale lock must not prevent the next update.
+        CleanupOldUpdaterRuntimes();
+        var helperRoot = Path.Combine(_cacheDirectory, "updater-runtimes");
+        Directory.CreateDirectory(helperRoot);
+        var helperDirectory = Path.Combine(helperRoot, $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}");
         ZipFile.ExtractToDirectory(packagePath, helperDirectory);
         var updater = Path.Combine(helperDirectory, updaterName);
         if (!File.Exists(updater)) throw new InvalidDataException("The Core update does not contain its updater helper.");
@@ -89,6 +94,23 @@ public sealed class CoreUpdateService
         start.ArgumentList.Add(appDirectory);
         start.ArgumentList.Add(executableName);
         _ = Process.Start(start) ?? throw new InvalidOperationException("Unable to launch the Forge updater helper.");
+    }
+
+    private void CleanupOldUpdaterRuntimes()
+    {
+        // Also recognize the legacy fixed directory from Core 0.4.1 and earlier.
+        var candidates = new List<string> { Path.Combine(_cacheDirectory, "updater-runtime") };
+        var root = Path.Combine(_cacheDirectory, "updater-runtimes");
+        if (Directory.Exists(root))
+        {
+            try { candidates.AddRange(Directory.EnumerateDirectories(root)); }
+            catch { /* A cache cleanup failure must never block an update. */ }
+        }
+        foreach (var directory in candidates)
+        {
+            try { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+            catch { /* A running or recently exited helper can remain locked briefly. */ }
+        }
     }
 
     public static Version CurrentVersion => Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
