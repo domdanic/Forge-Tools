@@ -10,7 +10,7 @@
       { "type": "text", "key": "pointsCommand", "label": "Balance command", "default": "!points" },
       { "type": "text", "key": "leaderboardCommand", "label": "Leaderboard command", "default": "!top" }
     ]},
-    { "title": "Slots", "controls": [
+    { "title": "Slots", "collapsible": true, "initiallyExpanded": false, "description": "A quick configurable wager with a normal win and a rarer jackpot.", "controls": [
       { "type": "toggle", "key": "slotsEnabled", "label": "Enable slots", "default": true },
       { "type": "text", "key": "slotsCommand", "label": "Command", "default": "!slots" },
       { "type": "text", "key": "slotsDefaultBet", "label": "Default bet", "default": "10" },
@@ -18,19 +18,19 @@
       { "type": "text", "key": "slotsWinPercent", "label": "Win chance (percent)", "default": "35" },
       { "type": "text", "key": "slotsPayout", "label": "Typical total payout multiplier", "default": "2" }
     ]},
-    { "title": "Roulette", "controls": [
+    { "title": "Roulette", "collapsible": true, "initiallyExpanded": false, "description": "European-style 0–36 roulette. Colors and odd/even pay 2× total; a single number pays 36× total.", "controls": [
       { "type": "toggle", "key": "rouletteEnabled", "label": "Enable roulette", "default": true },
       { "type": "text", "key": "rouletteCommand", "label": "Command (!roulette red 10, odd 10, or 17 10)", "default": "!roulette" },
       { "type": "text", "key": "rouletteMaxBet", "label": "Maximum bet", "default": "1000" }
     ]},
-    { "title": "Blackjack", "controls": [
+    { "title": "Blackjack", "collapsible": true, "initiallyExpanded": false, "description": "Viewers start a hand with a wager, then use the configured hit and stand commands. Dealer stands on 17.", "controls": [
       { "type": "toggle", "key": "blackjackEnabled", "label": "Enable blackjack", "default": true },
       { "type": "text", "key": "blackjackCommand", "label": "Start command (!blackjack 25)", "default": "!blackjack" },
       { "type": "text", "key": "blackjackMaxBet", "label": "Maximum bet", "default": "1000" },
       { "type": "text", "key": "hitCommand", "label": "Hit command", "default": "!hit" },
       { "type": "text", "key": "standCommand", "label": "Stand command", "default": "!stand" }
     ]},
-    { "title": "Cooperative boss battle", "controls": [
+    { "title": "Cooperative boss battle", "collapsible": true, "initiallyExpanded": false, "description": "Currently a cooperative damage race: each attack deals 8–25 damage. At 0 HP, the reward pool is split proportional to damage dealt. There is no loss timer in this version.", "controls": [
       { "type": "toggle", "key": "bossEnabled", "label": "Enable boss battles", "default": true },
       { "type": "text", "key": "bossCommand", "label": "Attack/status command", "default": "!boss" },
       { "type": "text", "key": "bossHitPoints", "label": "Boss hit points", "default": "500" },

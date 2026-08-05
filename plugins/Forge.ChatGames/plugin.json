@@ -1,7 +1,7 @@
 {
   "id": "tools.forge.chat-games",
   "name": "Chat Games",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A configurable virtual-points economy with slots, roulette, blackjack, and cooperative boss battles.",
   "author": "Forge Tools",
   "forgeApi": "2",

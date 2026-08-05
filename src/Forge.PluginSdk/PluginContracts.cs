@@ -107,6 +107,9 @@ public sealed record PluginUi
 public sealed record UiSection
 {
     public required string Title { get; init; }
+    public bool Collapsible { get; init; }
+    public bool InitiallyExpanded { get; init; } = true;
+    public string? Description { get; init; }
     public List<UiControl> Controls { get; init; } = [];
 }
 
