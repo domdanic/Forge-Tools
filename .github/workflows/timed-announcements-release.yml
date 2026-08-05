@@ -34,6 +34,7 @@ jobs:
           $manifest = Get-Content plugins/Forge.TimedAnnouncements/plugin.json -Raw | ConvertFrom-Json
           $entry.version = '${{ github.ref_name }}' -replace '^timed-announcements-v',''
           $entry.minimumCoreVersion = $manifest.minimumCoreVersion
+          $entry.permissions = @($manifest.permissions)
           $entry.packageUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$env:PACKAGE"
           $entry.sha256 = $env:SHA256
           $entry.available = $true

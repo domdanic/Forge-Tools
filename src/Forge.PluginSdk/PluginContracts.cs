@@ -98,6 +98,7 @@ public sealed record TwitchChatMessage(
     bool IsModerator,
     DateTimeOffset At);
 public sealed record TwitchAdBreakStarted(int DurationSeconds, DateTimeOffset StartedAt, bool IsAutomatic);
+public sealed record TimedAnnouncementTestRequested(string Kind, string? RuleId = null);
 
 public sealed record PluginUi
 {

@@ -458,9 +458,27 @@ public sealed partial class MainWindow : Window
         else if (spec.Type.Equals("timed-announcement-rules", StringComparison.OrdinalIgnoreCase))
         {
             settings.TryGetValue(spec.Key, out var saved);
-            var editor = new TimedAnnouncementRuleEditor(saved.ValueKind == JsonValueKind.Undefined ? null : saved, message => StatusText.Text = message);
+            string? statusPath = null;
+            if (!string.IsNullOrWhiteSpace(spec.OptionsSource))
+            {
+                var pluginData = Path.GetFullPath(Path.Combine(_plugins.SettingsDirectory, "plugin-data", pluginId));
+                var candidate = Path.GetFullPath(Path.Combine(pluginData, spec.OptionsSource));
+                if (candidate.StartsWith(pluginData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) statusPath = candidate;
+            }
+            var editor = new TimedAnnouncementRuleEditor(_events, saved.ValueKind == JsonValueKind.Undefined ? null : saved, statusPath, message => StatusText.Text = message);
             editor.Changed += (_, _) => SavePlugin(pluginId);
             field = editor;
+        }
+        else if (spec.Type.Equals("announcement-test-buttons", StringComparison.OrdinalIgnoreCase))
+        {
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new(0, 7, 0, 14) };
+            foreach (var item in new[] { ("Test warning", "ad-warning"), ("Test ad start", "ad-start"), ("Test ad end", "ad-end") })
+            {
+                var button = Button(item.Item1);
+                button.Click += async (_, _) => { try { await _events.PublishAsync(new TimedAnnouncementTestRequested(item.Item2)); StatusText.Text = item.Item1 + " sent"; } catch (Exception ex) { StatusText.Text = "Test failed: " + ex.GetBaseException().Message; } };
+                actions.Children.Add(button);
+            }
+            field = actions;
         }
         else if (spec.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase)) field = new CheckBox { Content = spec.Description ?? "Enabled", IsChecked = ReadBool(settings, spec.Key, spec.Default), Margin = new(0, 7, 0, 14) };
         else if (spec.Type.Equals("select", StringComparison.OrdinalIgnoreCase))
