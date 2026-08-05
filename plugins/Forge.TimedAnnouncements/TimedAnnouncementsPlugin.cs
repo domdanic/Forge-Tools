@@ -1,4 +1,5 @@
 using Forge.PluginSdk;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Forge.TimedAnnouncements;
@@ -18,6 +19,7 @@ public sealed class TimedAnnouncementsPlugin : IForgePlugin
     {
         _context = context;
         try { _state = JsonSerializer.Deserialize<RuntimeState>(File.ReadAllText(StatePath)) ?? new(); } catch { _state = new(); }
+        MigrateLegacyRules();
         return Task.CompletedTask;
     }
 
@@ -26,7 +28,7 @@ public sealed class TimedAnnouncementsPlugin : IForgePlugin
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _chatSubscription = _context!.Events.Subscribe<TwitchChatMessage>(message =>
         {
-            for (var index = 1; index <= 3; index++) _state.ChatMessages[index] = _state.ChatMessages.GetValueOrDefault(index) + 1;
+            foreach (var rule in LoadRules()) _state.ChatMessages[rule.Id] = _state.ChatMessages.GetValueOrDefault(rule.Id) + 1;
             Save(); return Task.CompletedTask;
         });
         _adSubscription = _context.Events.Subscribe<TwitchAdBreakStarted>(OnAdStartedAsync);
@@ -58,7 +60,7 @@ public sealed class TimedAnnouncementsPlugin : IForgePlugin
         {
             try
             {
-                for (var index = 1; index <= 3; index++) await CheckRecurringAsync(index, cancellationToken);
+                foreach (var rule in LoadRules()) await CheckRecurringAsync(rule, cancellationToken);
                 await CheckAdEndAsync(cancellationToken);
                 if (DateTimeOffset.UtcNow - _state.LastScheduleCheck >= TimeSpan.FromSeconds(45)) await CheckAdScheduleAsync(cancellationToken);
             }
@@ -67,20 +69,45 @@ public sealed class TimedAnnouncementsPlugin : IForgePlugin
         }
     }
 
-    private async Task CheckRecurringAsync(int index, CancellationToken cancellationToken)
+    private async Task CheckRecurringAsync(AnnouncementRule rule, CancellationToken cancellationToken)
     {
-        if (!_context!.Settings.Get($"message{index}Enabled", false)) return;
-        var text = _context.Settings.Get($"message{index}Text", "").Trim();
+        if (!rule.Enabled || rule.Messages.Count == 0) return;
+        var minutes = Math.Clamp(rule.IntervalMinutes, 1, 10080);
+        var requiredChat = Math.Clamp(rule.MinimumChatMessages, 0, 100000);
+        _state.LastSent.TryGetValue(rule.Id, out var last);
+        if (last == default) { _state.LastSent[rule.Id] = DateTimeOffset.UtcNow; Save(); return; }
+        if (DateTimeOffset.UtcNow - last < TimeSpan.FromMinutes(minutes) || _state.ChatMessages.GetValueOrDefault(rule.Id) < requiredChat) return;
+        var text = rule.Messages[RandomNumberGenerator.GetInt32(rule.Messages.Count)].Trim();
         if (text.Length == 0) return;
-        var minutes = ClampInt(_context.Settings.Get($"message{index}Minutes", "60"), 60, 1, 1440);
-        var requiredChat = ClampInt(_context.Settings.Get($"message{index}ChatCount", "10"), 10, 0, 10000);
-        _state.LastSent.TryGetValue(index, out var last);
-        if (last == default) { _state.LastSent[index] = DateTimeOffset.UtcNow; Save(); return; }
-        if (DateTimeOffset.UtcNow - last < TimeSpan.FromMinutes(minutes) || _state.ChatMessages.GetValueOrDefault(index) < requiredChat) return;
         await SendAsync(text, cancellationToken);
-        _state.LastSent[index] = DateTimeOffset.UtcNow;
-        _state.ChatMessages[index] = 0;
+        _state.LastSent[rule.Id] = DateTimeOffset.UtcNow;
+        _state.ChatMessages[rule.Id] = 0;
         Save();
+    }
+
+    private List<AnnouncementRule> LoadRules() => _context!.Settings.Get("announcementRules", new List<AnnouncementRule>())
+        .Where(rule => !string.IsNullOrWhiteSpace(rule.Id))
+        .Select(rule => rule with { Messages = rule.Messages.Where(message => !string.IsNullOrWhiteSpace(message)).Select(message => message.Trim()).Distinct().ToList() })
+        .ToList();
+
+    private void MigrateLegacyRules()
+    {
+        if (LoadRules().Count > 0) return;
+        var migrated = new List<AnnouncementRule>();
+        for (var index = 1; index <= 3; index++)
+        {
+            var text = _context!.Settings.Get($"message{index}Text", "").Trim();
+            var enabled = _context.Settings.Get($"message{index}Enabled", false);
+            if (!enabled && text.Length == 0) continue;
+            migrated.Add(new AnnouncementRule(
+                $"legacy-{index}",
+                $"Announcement {index}",
+                enabled,
+                ClampInt(_context.Settings.Get($"message{index}Minutes", "60"), 60, 1, 10080),
+                ClampInt(_context.Settings.Get($"message{index}ChatCount", "10"), 10, 0, 100000),
+                text.Length == 0 ? [] : [text]));
+        }
+        if (migrated.Count > 0) _context!.Settings.Set("announcementRules", migrated);
     }
 
     private async Task CheckAdEndAsync(CancellationToken cancellationToken)
@@ -131,11 +158,12 @@ public sealed class TimedAnnouncementsPlugin : IForgePlugin
 
     private sealed class RuntimeState
     {
-        public Dictionary<int, int> ChatMessages { get; set; } = [];
-        public Dictionary<int, DateTimeOffset> LastSent { get; set; } = [];
+        public Dictionary<string, int> ChatMessages { get; set; } = [];
+        public Dictionary<string, DateTimeOffset> LastSent { get; set; } = [];
         public DateTimeOffset? AdEndsAt { get; set; }
         public int AdDurationSeconds { get; set; }
         public DateTimeOffset LastScheduleCheck { get; set; }
         public string? WarnedSchedule { get; set; }
     }
+    private sealed record AnnouncementRule(string Id, string Name, bool Enabled, int IntervalMinutes, int MinimumChatMessages, List<string> Messages);
 }
