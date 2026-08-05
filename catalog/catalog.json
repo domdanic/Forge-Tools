@@ -66,11 +66,11 @@
       "description": "A configurable virtual-points economy with slots, roulette, blackjack, and cooperative boss battles.",
       "author": "Forge Tools",
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/chat-games-v0.1.0/Forge.ChatGames-0.1.0.zip",
-      "sha256": "",
+      "sha256": "BF3837ABA6154AC3E8874EF94D8CCD13BBDB5EA4A43808071C9E6FAB4154F96D",
       "forgeApi": "2",
       "minimumCoreVersion": "0.4.0",
       "verified": false,
-      "available": false,
+      "available": true,
       "permissions": [
         "twitch.chat.read",
         "twitch.chat.write",
