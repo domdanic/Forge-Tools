@@ -320,8 +320,25 @@ public sealed partial class MainWindow : Window
         var fields = new Dictionary<string, Control>();
         foreach (var section in plugin.Ui.Sections)
         {
-            panel.Children.Add(Heading(section.Title, 19, new(0, 14, 0, 8)));
-            foreach (var spec in section.Controls) AddControl(panel, fields, settings, spec, plugin.Manifest.Id);
+            if (section.Collapsible)
+            {
+                var sectionPanel = new StackPanel { Margin = new(0, 6, 0, 8) };
+                if (!string.IsNullOrWhiteSpace(section.Description)) sectionPanel.Children.Add(Secondary(section.Description));
+                foreach (var spec in section.Controls) AddControl(sectionPanel, fields, settings, spec, plugin.Manifest.Id);
+                panel.Children.Add(new Expander
+                {
+                    Header = Heading(section.Title, 19),
+                    Content = sectionPanel,
+                    IsExpanded = section.InitiallyExpanded,
+                    Margin = new(0, 10, 0, 0)
+                });
+            }
+            else
+            {
+                panel.Children.Add(Heading(section.Title, 19, new(0, 14, 0, 8)));
+                if (!string.IsNullOrWhiteSpace(section.Description)) panel.Children.Add(Secondary(section.Description));
+                foreach (var spec in section.Controls) AddControl(panel, fields, settings, spec, plugin.Manifest.Id);
+            }
         }
         _fields[plugin.Manifest.Id] = fields;
         var save = Button("Save settings"); save.HorizontalAlignment = HorizontalAlignment.Left; save.Margin = new(0, 20, 0, 0); save.Click += (_, _) => SavePlugin(plugin.Manifest.Id); panel.Children.Add(save);
