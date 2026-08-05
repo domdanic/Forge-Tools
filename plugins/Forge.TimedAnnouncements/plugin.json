@@ -1,13 +1,13 @@
 {
   "id": "tools.forge.timed-announcements",
   "name": "Timed Announcements",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Sends activity-aware recurring messages and useful Twitch ad notices.",
   "author": "Forge Tools",
   "forgeApi": "2",
-  "minimumCoreVersion": "0.4.4",
+  "minimumCoreVersion": "0.4.5",
   "entryAssembly": "Forge.TimedAnnouncements.dll",
   "entryType": "Forge.TimedAnnouncements.TimedAnnouncementsPlugin",
   "ui": "ui.json",
-  "permissions": ["twitch.chat.read", "twitch.chat.write", "twitch.ads.read", "storage.local"]
+  "permissions": ["obs.read", "twitch.chat.read", "twitch.chat.write", "twitch.channel.read", "twitch.ads.read", "storage.local"]
 }

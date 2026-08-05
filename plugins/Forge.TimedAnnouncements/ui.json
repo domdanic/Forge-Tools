@@ -1,26 +1,40 @@
 {
   "sections": [
     {
+      "title": "Global controls",
+      "controls": [
+        { "type": "toggle", "key": "paused", "label": "Pause all automatic messages", "default": false },
+        { "type": "text", "key": "minimumGlobalSpacingSeconds", "label": "Minimum seconds between any two automated messages", "default": "15" },
+        { "type": "text", "key": "postAdDelayMinutes", "label": "Wait after an ad before resuming recurring messages (minutes)", "default": "1" },
+        { "type": "multiline", "key": "ignoredUsers", "label": "Chat accounts that do not count toward activity (one per line)", "default": "" }
+      ]
+    },
+    {
       "title": "Recurring announcements",
       "controls": [
         {
           "type": "timed-announcement-rules",
           "key": "announcementRules",
           "label": "Announcement schedules",
-          "description": "Create any number of independent schedules and give each one multiple randomly selected message options."
+          "description": "Create independent stream-aware schedules with randomized, shuffled, or sequential message pools.",
+          "optionsSource": "schedule-status.json"
         }
       ]
     },
     {
-      "title": "Ad notices",
+      "title": "Ad lifecycle",
       "collapsible": true,
-      "initiallyExpanded": false,
+      "initiallyExpanded": true,
+      "description": "Each stage supports multiple message options, one per line. Use {duration}, {minutes}, {channel}, {category}, {title}, or {time} placeholders.",
       "controls": [
-        { "type": "toggle", "key": "adEndEnabled", "label": "Announce when an ad break ends", "default": true },
-        { "type": "text", "key": "adEndText", "label": "Ad-end message ({duration} inserts the break length)", "default": "Ads are over—welcome back!" },
         { "type": "toggle", "key": "adWarningEnabled", "label": "Warn before Twitch's next scheduled ad", "default": true },
         { "type": "text", "key": "adWarningMinutes", "label": "Warning lead time (minutes)", "default": "2" },
-        { "type": "text", "key": "adWarningText", "label": "Warning message ({minutes} inserts lead time)", "default": "Heads up: ads are scheduled in about {minutes} minutes." }
+        { "type": "multiline", "key": "adWarningMessages", "label": "Upcoming-ad message options", "default": "Heads up: ads are scheduled in about {minutes} minutes." },
+        { "type": "toggle", "key": "adStartEnabled", "label": "Announce when ads begin", "default": true },
+        { "type": "multiline", "key": "adStartMessages", "label": "Ad-start message options", "default": "Ads are starting now and will run for {duration}." },
+        { "type": "toggle", "key": "adEndEnabled", "label": "Announce when an ad break ends", "default": true },
+        { "type": "multiline", "key": "adEndMessages", "label": "Ad-end message options", "default": "Ads are over—welcome back!" },
+        { "type": "announcement-test-buttons", "key": "adTestActions", "label": "Test ad messages" }
       ]
     }
   ]
