@@ -49,7 +49,7 @@
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/timed-announcements-v0.2.0/Forge.TimedAnnouncements-0.2.0.zip",
       "sha256": "77B9AC94F655FB9C3B5EC672909BF56CEEE9A841A68B47D0347C646759ABF3CF",
       "forgeApi": "2",
-      "minimumCoreVersion": "0.4.0",
+      "minimumCoreVersion": "0.4.4",
       "verified": false,
       "available": true,
       "permissions": [
