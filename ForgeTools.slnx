@@ -2,6 +2,8 @@
   <Folder Name="/plugins/">
     <Project Path="plugins/Forge.CaptureSwitcher/Forge.CaptureSwitcher.csproj" />
     <Project Path="plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj" />
+    <Project Path="plugins/Forge.ChatGames/Forge.ChatGames.csproj" />
+    <Project Path="plugins/Forge.TimedAnnouncements/Forge.TimedAnnouncements.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Forge.App/Forge.App.csproj" />

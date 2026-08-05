@@ -63,10 +63,13 @@ public interface ITwitchConnection
     Task<TwitchCategory?> FindCategoryAsync(string exactName, CancellationToken cancellationToken = default);
     Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default);
     Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default);
+    Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default);
+    Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed record TwitchCategory(string Id, string Name);
 public sealed record TwitchChannel(string BroadcasterId, string CategoryId, string CategoryName, string Title);
+public sealed record TwitchAdSchedule(DateTimeOffset? NextAdAt, int DurationSeconds, int SnoozeCount);
 
 public interface IForgeEventBus
 {
@@ -94,6 +97,7 @@ public sealed record TwitchChatMessage(
     bool IsBroadcaster,
     bool IsModerator,
     DateTimeOffset At);
+public sealed record TwitchAdBreakStarted(int DurationSeconds, DateTimeOffset StartedAt, bool IsAutomatic);
 
 public sealed record PluginUi
 {

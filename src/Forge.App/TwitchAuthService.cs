@@ -12,7 +12,7 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat channel:manage:broadcast";
+    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
     private TwitchTokens? _tokens;
@@ -118,6 +118,44 @@ public sealed class TwitchAuthService
         using var response = await SendHelixAsync(HttpMethod.Patch, $"channels?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", new { game_id = categoryId }, cancellationToken);
     }
 
+    public async Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        message = message.Trim();
+        if (message.Length is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(message), "A Twitch chat message must be between 1 and 500 characters.");
+        using var response = await SendHelixAsync(HttpMethod.Post, "chat/messages", new
+        {
+            broadcaster_id = Identity.UserId,
+            sender_id = Identity.UserId,
+            message
+        }, cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var result = document.RootElement.GetProperty("data").EnumerateArray().FirstOrDefault();
+        if (result.ValueKind != JsonValueKind.Undefined && result.TryGetProperty("is_sent", out var sent) && !sent.GetBoolean())
+        {
+            var reason = result.TryGetProperty("drop_reason", out var drop) && drop.TryGetProperty("message", out var detail) ? detail.GetString() : null;
+            throw new InvalidOperationException(reason ?? "Twitch did not send the chat message.");
+        }
+    }
+
+    public async Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        using var response = await SendHelixAsync(HttpMethod.Get, $"channels/ads?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", null, cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var item = document.RootElement.GetProperty("data").EnumerateArray().FirstOrDefault();
+        if (item.ValueKind == JsonValueKind.Undefined) return null;
+        DateTimeOffset? next = null;
+        if (item.TryGetProperty("next_ad_at", out var nextElement))
+        {
+            if (nextElement.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(nextElement.GetString(), out var parsed)) next = parsed;
+            else if (nextElement.ValueKind == JsonValueKind.Number && nextElement.TryGetInt64(out var unix) && unix > 0) next = DateTimeOffset.FromUnixTimeSeconds(unix);
+        }
+        var duration = item.TryGetProperty("duration", out var durationElement) && durationElement.TryGetInt32(out var seconds) ? seconds : 0;
+        var snoozes = item.TryGetProperty("snooze_count", out var snoozeElement) && snoozeElement.TryGetInt32(out var count) ? count : 0;
+        return new(next, duration, snoozes);
+    }
+
     public async Task CreateChatSubscriptionAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
@@ -128,6 +166,20 @@ public sealed class TwitchAuthService
             type = "channel.chat.message",
             version = "1",
             condition = new { broadcaster_user_id = Identity.UserId, user_id = Identity.UserId },
+            transport = new { method = "websocket", session_id = sessionId }
+        }, cancellationToken);
+    }
+
+    public async Task CreateAdSubscriptionAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (!Identity.Scopes.Contains("channel:read:ads", StringComparer.Ordinal))
+            throw new InvalidOperationException("Reconnect Twitch to grant ad-reading permission.");
+        using var response = await SendHelixAsync(HttpMethod.Post, "eventsub/subscriptions", new
+        {
+            type = "channel.ad_break.begin",
+            version = "1",
+            condition = new { broadcaster_user_id = Identity.UserId },
             transport = new { method = "websocket", session_id = sessionId }
         }, cancellationToken);
     }

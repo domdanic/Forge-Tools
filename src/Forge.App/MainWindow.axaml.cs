@@ -216,11 +216,12 @@ public sealed partial class MainWindow : Window
 
     private async Task UpdateTwitchChatStateAsync()
     {
-        var shouldConnect = _twitch.Identity is not null && _plugins.Discover().Any(plugin =>
+        var active = _plugins.Discover().Where(plugin =>
             _plugins.IsEnabled(plugin.Manifest.Id) &&
-            plugin.Manifest.Permissions.Contains("twitch.chat.read", StringComparer.OrdinalIgnoreCase) &&
-            _permissions.Allows(plugin.Manifest.Id, "twitch.chat.read"));
-        if (shouldConnect) await _twitchChat.StartAsync();
+            plugin.Manifest.Permissions.All(permission => _permissions.Allows(plugin.Manifest.Id, permission))).ToList();
+        var includeChat = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.chat.read", StringComparer.OrdinalIgnoreCase));
+        var includeAds = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.ads.read", StringComparer.OrdinalIgnoreCase));
+        if (_twitch.Identity is not null && (includeChat || includeAds)) await _twitchChat.StartAsync(includeChat, includeAds);
         else await _twitchChat.StopAsync();
     }
 

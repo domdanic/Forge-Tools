@@ -14,6 +14,8 @@ public sealed class TwitchChatService : IAsyncDisposable
     private readonly HashSet<string> _recentIds = new(StringComparer.Ordinal);
     private CancellationTokenSource? _lifetime;
     private Task? _worker;
+    private bool _includeChat;
+    private bool _includeAds;
 
     public TwitchChatService(TwitchAuthService auth, IForgeEventBus events, ForgeLogger log)
     {
@@ -22,10 +24,12 @@ public sealed class TwitchChatService : IAsyncDisposable
         _log = log;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(bool includeChat = true, bool includeAds = false, CancellationToken cancellationToken = default)
     {
         await StopAsync();
         if (_auth.Identity is null) return;
+        _includeChat = includeChat;
+        _includeAds = includeAds;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _worker = RunAsync(_lifetime.Token);
     }
@@ -73,11 +77,12 @@ public sealed class TwitchChatService : IAsyncDisposable
                 {
                     var sessionId = message.GetProperty("payload").GetProperty("session").GetProperty("id").GetString()
                         ?? throw new InvalidDataException("Twitch chat session did not include an ID.");
-                    await _auth.CreateChatSubscriptionAsync(sessionId, cancellationToken);
-                    await _log.WriteAsync("INFO", "TwitchChat", "Chat subscription connected.");
+                    if (_includeChat) await _auth.CreateChatSubscriptionAsync(sessionId, cancellationToken);
+                    if (_includeAds) await _auth.CreateAdSubscriptionAsync(sessionId, cancellationToken);
+                    await _log.WriteAsync("INFO", "TwitchEventSub", "Twitch event subscriptions connected.");
                 }
             }
-            else if (messageType == "notification") await PublishChatAsync(message, metadata, cancellationToken);
+            else if (messageType == "notification") await PublishNotificationAsync(message, metadata, cancellationToken);
             else if (messageType == "session_reconnect")
             {
                 var reconnect = message.GetProperty("payload").GetProperty("session").GetProperty("reconnect_url").GetString();
@@ -92,7 +97,7 @@ public sealed class TwitchChatService : IAsyncDisposable
         return null;
     }
 
-    private async Task PublishChatAsync(JsonElement envelope, JsonElement metadata, CancellationToken cancellationToken)
+    private async Task PublishNotificationAsync(JsonElement envelope, JsonElement metadata, CancellationToken cancellationToken)
     {
         var messageId = metadata.GetProperty("message_id").GetString() ?? Guid.NewGuid().ToString("N");
         if (!_recentIds.Add(messageId)) return;
@@ -100,8 +105,18 @@ public sealed class TwitchChatService : IAsyncDisposable
         while (_recentOrder.Count > 500) _recentIds.Remove(_recentOrder.Dequeue());
 
         var payload = envelope.GetProperty("payload");
-        if (payload.GetProperty("subscription").GetProperty("type").GetString() != "channel.chat.message") return;
+        var subscriptionType = payload.GetProperty("subscription").GetProperty("type").GetString();
         var item = payload.GetProperty("event");
+        if (subscriptionType == "channel.ad_break.begin")
+        {
+            var duration = item.TryGetProperty("duration_seconds", out var durationElement) ? durationElement.GetInt32() : 0;
+            var startedAt = item.TryGetProperty("started_at", out var startedElement) && DateTimeOffset.TryParse(startedElement.GetString(), out var parsed) ? parsed : DateTimeOffset.UtcNow;
+            var automatic = item.TryGetProperty("is_automatic", out var automaticElement) && automaticElement.GetBoolean();
+            try { await _events.PublishAsync(new TwitchAdBreakStarted(duration, startedAt, automatic), cancellationToken); }
+            catch (Exception ex) { await _log.WriteAsync("ERROR", "TwitchEventSub", "An ad event subscriber failed", ex); }
+            return;
+        }
+        if (subscriptionType != "channel.chat.message") return;
         var userId = item.GetProperty("chatter_user_id").GetString() ?? "";
         var broadcasterId = item.GetProperty("broadcaster_user_id").GetString() ?? "";
         var badges = item.TryGetProperty("badges", out var badgesElement) && badgesElement.ValueKind == JsonValueKind.Array

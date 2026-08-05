@@ -22,7 +22,7 @@ Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The co
 - Stable category-change events that let plugins cooperate without depending directly on one another.
 - Plugin minimum-Core requirements enforced in the catalogue, installer, and runtime.
 - Per-plugin JSON settings export/import without credentials; Capture Switcher can remap OBS source names during import.
-- Permission-gated Twitch EventSub chat messages for optional plugin commands.
+- Permission-gated Twitch EventSub chat/ad events plus chat sending for optional plugin commands and announcements.
 - Enable, disable, permission review, update, and uninstall controls.
 - Per-profile settings and permission grants.
 - Sanitized local logging and credential-free diagnostics bundles.
@@ -40,7 +40,9 @@ Copy `templates/Forge.PluginTemplate`, change its ID and metadata, and implement
 
 Plugins declare all requested permissions in `plugin.json`. Forge does not expose shared connection services until the user grants those permissions.
 
-Forge's maintained plugins currently include Category Switcher and Capture Switcher. Category Switcher publishes a confirmed `TwitchCategoryChanged` event and supports optional broadcaster/moderator chat commands; Capture Switcher consumes the category event to retarget existing OBS Game Capture and Application Audio Capture sources.
+Forge's maintained plugins include Category Switcher, Capture Switcher, Timed Announcements, and Chat Games. Timed Announcements combines elapsed-time and chat-activity thresholds and uses Twitch's actual ad schedule/events. Chat Games provides a persistent virtual-points economy with independently configurable slots, roulette, blackjack, and cooperative boss battles.
+
+Chat Games only awards passive points to accounts it has actually observed speaking in chat recently; Twitch does not provide a complete reliable viewer list. Its points have no cash value. Plugin configuration is included in Forge's settings export, while live balances and timer state remain portable in the profile's plugin-data folder and survive updates.
 
 Declarative plugins contain no executable code and are the safe default for open community distribution. Executable .NET plugins currently run in-process and must be treated as trusted code: service permissions prevent accidental API access but cannot sandbox arbitrary operating-system calls. A future out-of-process worker is required before Forge should advertise unreviewed executable plugins as isolated.
 
