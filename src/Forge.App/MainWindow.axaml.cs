@@ -455,6 +455,13 @@ public sealed partial class MainWindow : Window
             editor.Changed += (_, _) => SavePlugin(pluginId);
             field = editor;
         }
+        else if (spec.Type.Equals("timed-announcement-rules", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.TryGetValue(spec.Key, out var saved);
+            var editor = new TimedAnnouncementRuleEditor(saved.ValueKind == JsonValueKind.Undefined ? null : saved, message => StatusText.Text = message);
+            editor.Changed += (_, _) => SavePlugin(pluginId);
+            field = editor;
+        }
         else if (spec.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase)) field = new CheckBox { Content = spec.Description ?? "Enabled", IsChecked = ReadBool(settings, spec.Key, spec.Default), Margin = new(0, 7, 0, 14) };
         else if (spec.Type.Equals("select", StringComparison.OrdinalIgnoreCase))
         {
@@ -469,7 +476,7 @@ public sealed partial class MainWindow : Window
 
     private void SavePlugin(string pluginId)
     {
-        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, _ => null });
+        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, _ => null });
         _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
     }
 

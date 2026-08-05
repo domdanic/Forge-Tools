@@ -1,34 +1,20 @@
 {
   "sections": [
     {
-      "title": "Recurring message 1",
+      "title": "Recurring announcements",
       "controls": [
-        { "type": "toggle", "key": "message1Enabled", "label": "Enable this message", "default": false },
-        { "type": "multiline", "key": "message1Text", "label": "Message", "default": "Follow my socials for stream updates!" },
-        { "type": "text", "key": "message1Minutes", "label": "Minimum minutes between sends", "default": "60" },
-        { "type": "text", "key": "message1ChatCount", "label": "Minimum chat messages since last send", "default": "10" }
-      ]
-    },
-    {
-      "title": "Recurring message 2",
-      "controls": [
-        { "type": "toggle", "key": "message2Enabled", "label": "Enable this message", "default": false },
-        { "type": "multiline", "key": "message2Text", "label": "Message", "default": "" },
-        { "type": "text", "key": "message2Minutes", "label": "Minimum minutes between sends", "default": "60" },
-        { "type": "text", "key": "message2ChatCount", "label": "Minimum chat messages since last send", "default": "10" }
-      ]
-    },
-    {
-      "title": "Recurring message 3",
-      "controls": [
-        { "type": "toggle", "key": "message3Enabled", "label": "Enable this message", "default": false },
-        { "type": "multiline", "key": "message3Text", "label": "Message", "default": "" },
-        { "type": "text", "key": "message3Minutes", "label": "Minimum minutes between sends", "default": "60" },
-        { "type": "text", "key": "message3ChatCount", "label": "Minimum chat messages since last send", "default": "10" }
+        {
+          "type": "timed-announcement-rules",
+          "key": "announcementRules",
+          "label": "Announcement schedules",
+          "description": "Create any number of independent schedules and give each one multiple randomly selected message options."
+        }
       ]
     },
     {
       "title": "Ad notices",
+      "collapsible": true,
+      "initiallyExpanded": false,
       "controls": [
         { "type": "toggle", "key": "adEndEnabled", "label": "Announce when an ad break ends", "default": true },
         { "type": "text", "key": "adEndText", "label": "Ad-end message ({duration} inserts the break length)", "default": "Ads are over—welcome back!" },
