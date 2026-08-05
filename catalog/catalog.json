@@ -43,18 +43,20 @@
     {
       "id": "tools.forge.timed-announcements",
       "name": "Timed Announcements",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Sends activity-aware recurring messages and useful Twitch ad notices.",
       "author": "Forge Tools",
-      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/timed-announcements-v0.2.0/Forge.TimedAnnouncements-0.2.0.zip",
-      "sha256": "77B9AC94F655FB9C3B5EC672909BF56CEEE9A841A68B47D0347C646759ABF3CF",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/timed-announcements-v0.3.0/Forge.TimedAnnouncements-0.3.0.zip",
+      "sha256": "B0FD59FF880DE04A1F82BF1F1B7DA7FA74A3171EDDA77F787444919AF1B13725",
       "forgeApi": "2",
-      "minimumCoreVersion": "0.4.4",
+      "minimumCoreVersion": "0.4.5",
       "verified": false,
       "available": true,
       "permissions": [
+        "obs.read",
         "twitch.chat.read",
         "twitch.chat.write",
+        "twitch.channel.read",
         "twitch.ads.read",
         "storage.local"
       ]
