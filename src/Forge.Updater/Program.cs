@@ -10,8 +10,10 @@ var marker = Path.Combine(appDirectory, ".forge-root");
 if (!File.Exists(marker) || !File.Exists(package) || Path.GetFileName(executableName) != executableName) return 3;
 
 var cache = Path.Combine(appDirectory, "data", "cache");
-var backup = Path.Combine(cache, "update-backup");
-var staging = Path.Combine(cache, "update-staging");
+var runs = Path.Combine(cache, "update-runs");
+var runRoot = Path.Combine(runs, $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}");
+var backup = Path.Combine(runRoot, "backup");
+var staging = Path.Combine(runRoot, "staging");
 var logPath = Path.Combine(cache, "last-update.log");
 Directory.CreateDirectory(cache);
 
@@ -19,8 +21,9 @@ try
 {
     await File.AppendAllTextAsync(logPath, $"{DateTimeOffset.Now:u} Applying update from {package}{Environment.NewLine}");
     try { Process.GetProcessById(processId).WaitForExit(30000); } catch { }
-    RecreateDirectory(backup);
-    RecreateDirectory(staging);
+    CleanupOldUpdateWork(cache, runs);
+    Directory.CreateDirectory(backup);
+    Directory.CreateDirectory(staging);
     ExtractValidated(package, staging);
     if (!File.Exists(Path.Combine(staging, executableName)) || !File.Exists(Path.Combine(staging, ".forge-root")))
         throw new InvalidDataException("The staged release is missing its launcher or portable root marker.");
@@ -37,6 +40,7 @@ try
         await Task.Delay(TimeSpan.FromSeconds(5));
         if (launched.HasExited) throw new InvalidOperationException("Updated Forge Tools exited during startup.");
         await File.AppendAllTextAsync(logPath, $"{DateTimeOffset.Now:u} Update completed successfully.{Environment.NewLine}");
+        TryDelete(runRoot);
         return 0;
     }
     catch
@@ -52,10 +56,24 @@ catch (Exception ex)
     return 1;
 }
 
-static void RecreateDirectory(string path)
+static void CleanupOldUpdateWork(string cache, string runs)
 {
-    if (Directory.Exists(path)) Directory.Delete(path, true);
-    Directory.CreateDirectory(path);
+    // Legacy fixed work directories may remain locked by antivirus, sync, or
+    // indexing providers. Their cleanup must never be required for an update.
+    TryDelete(Path.Combine(cache, "update-backup"));
+    TryDelete(Path.Combine(cache, "update-staging"));
+    if (!Directory.Exists(runs)) return;
+    try
+    {
+        foreach (var directory in Directory.EnumerateDirectories(runs)) TryDelete(directory);
+    }
+    catch { }
+}
+
+static void TryDelete(string path)
+{
+    try { if (Directory.Exists(path)) Directory.Delete(path, true); }
+    catch { }
 }
 
 static void CopyTopLevel(string source, string target)
