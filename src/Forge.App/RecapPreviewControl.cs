@@ -19,8 +19,16 @@ internal sealed class RecapPreviewControl : StackPanel
         Spacing = 8;
         Margin = new(0, 7, 0, 14);
         var refresh = new Button { Content = "Refresh credits preview", HorizontalAlignment = HorizontalAlignment.Left };
-        refresh.Click += (_, _) => Refresh();
+        refresh.Click += async (_, _) => await RefreshSoonAsync();
         Children.Add(_summary); Children.Add(_preview); Children.Add(refresh);
+        Refresh();
+    }
+
+    public async Task RefreshSoonAsync()
+    {
+        // Settings changes are observed and rendered asynchronously by the plugin.
+        // Give that render a moment to atomically replace the status file before reading it.
+        await Task.Delay(200);
         Refresh();
     }
 
