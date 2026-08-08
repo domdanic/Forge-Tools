@@ -470,6 +470,31 @@ public sealed partial class MainWindow : Window
             editor.Changed += (_, _) => SavePlugin(pluginId);
             field = editor;
         }
+        else if (spec.Type.Equals("obs-scene-source", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.TryGetValue(spec.Key, out var saved);
+            var picker = new ObsSceneSourcePicker(_obs, saved.ValueKind == JsonValueKind.Undefined ? null : saved, message => StatusText.Text = message);
+            picker.Changed += (_, _) => SavePlugin(pluginId);
+            field = picker;
+        }
+        else if (spec.Type.Equals("recap-preview", StringComparison.OrdinalIgnoreCase))
+        {
+            string? statusPath = null;
+            if (!string.IsNullOrWhiteSpace(spec.OptionsSource))
+            {
+                var pluginData = Path.GetFullPath(Path.Combine(_plugins.SettingsDirectory, "plugin-data", pluginId));
+                var candidate = Path.GetFullPath(Path.Combine(pluginData, spec.OptionsSource));
+                if (candidate.StartsWith(pluginData + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) statusPath = candidate;
+            }
+            field = new RecapPreviewControl(statusPath, message => StatusText.Text = message);
+        }
+        else if (spec.Type.Equals("recap-category-order", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.TryGetValue(spec.Key, out var saved);
+            var editor = new RecapCategoryOrderEditor(saved.ValueKind == JsonValueKind.Undefined ? null : saved);
+            editor.Changed += (_, _) => SavePlugin(pluginId);
+            field = editor;
+        }
         else if (spec.Type.Equals("announcement-test-buttons", StringComparison.OrdinalIgnoreCase))
         {
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new(0, 7, 0, 14) };
@@ -495,7 +520,7 @@ public sealed partial class MainWindow : Window
 
     private void SavePlugin(string pluginId)
     {
-        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, _ => null });
+        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, ObsSceneSourcePicker picker => picker.Selection, RecapCategoryOrderEditor editor => editor.Order, _ => null });
         _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
     }
 

@@ -1,13 +1,13 @@
 {
   "id": "tools.forge.stream-recap",
   "name": "Stream Recap & Credits",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Collects important stream events and turns the same recap into OBS end credits.",
   "author": "Forge Tools",
   "forgeApi": "2",
-  "minimumCoreVersion": "0.5.0",
+  "minimumCoreVersion": "0.5.1",
   "entryAssembly": "Forge.StreamRecap.dll",
   "entryType": "Forge.StreamRecap.StreamRecapPlugin",
   "ui": "ui.json",
-  "permissions": ["obs.read", "obs.control", "twitch.events.read", "storage.local"]
+  "permissions": ["obs.read", "obs.control", "twitch.chat.read", "twitch.events.read", "storage.local"]
 }

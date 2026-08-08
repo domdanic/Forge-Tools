@@ -1,22 +1,69 @@
 {
   "sections": [
     {
-      "title": "Recap",
-      "description": "Forge records follows, subscriptions, sub anniversaries, gift batches, cheers, and incoming raids while OBS is streaming. recap.json and credits.txt are written to this plugin's data folder.",
+      "title": "Credits preview",
+      "description": "This is the exact grouped text Forge writes to credits.txt and sends to the selected OBS source.",
       "controls": [
-        { "type": "toggle", "key": "includeFollows", "label": "Include follows", "default": true },
-        { "type": "text", "key": "maximumEvents", "label": "Maximum events in credits", "default": "100" },
-        { "type": "text", "key": "creditsHeading", "label": "Credits heading", "default": "Thanks for watching!" }
+        { "type": "recap-preview", "key": "creditsPreview", "label": "Current credits", "optionsSource": "credits-status.json" }
       ]
     },
     {
-      "title": "OBS end-credits scene",
-      "description": "The plugin creates or updates one OBS text source from the exact same ordered recap list.",
+      "title": "Section order",
+      "description": "Empty sections are automatically omitted.",
       "controls": [
-        { "type": "toggle", "key": "manageObsCredits", "label": "Create and update an OBS credits text source", "default": true },
-        { "type": "text", "key": "sceneName", "label": "OBS scene name", "default": "Stream Credits" },
-        { "type": "text", "key": "inputName", "label": "OBS text source name", "default": "Forge Stream Credits" },
-        { "type": "toggle", "key": "switchSceneAtStreamEnd", "label": "Switch to the credits scene when streaming ends", "default": false }
+        { "type": "recap-category-order", "key": "categoryOrder", "label": "Drag to reorder credit sections" }
+      ]
+    },
+    {
+      "title": "Included people and events",
+      "description": "Moderators are included once after they send at least one chat message during the stream. Enable or disable every credit type independently.",
+      "controls": [
+        { "type": "toggle", "key": "includeModerators", "label": "Include moderators who chatted", "default": true },
+        { "type": "toggle", "key": "includeSubscriptions", "label": "Include new subscriptions", "default": true },
+        { "type": "toggle", "key": "includeSubiversaries", "label": "Include subscription anniversaries", "default": true },
+        { "type": "toggle", "key": "includeGifts", "label": "Include gifted-sub batches", "default": true },
+        { "type": "toggle", "key": "includeCheers", "label": "Include cheers", "default": true },
+        { "type": "toggle", "key": "includeRaids", "label": "Include incoming raids", "default": true },
+        { "type": "toggle", "key": "includeFollows", "label": "Include follows", "default": true },
+        { "type": "text", "key": "maximumEvents", "label": "Maximum recorded events", "default": "100" }
+      ]
+    },
+    {
+      "title": "Section headings",
+      "collapsible": true,
+      "initiallyExpanded": false,
+      "controls": [
+        { "type": "text", "key": "creditsHeading", "label": "Main credits heading", "default": "Thanks for watching!" },
+        { "type": "text", "key": "headingModerators", "label": "Moderator heading", "default": "Mods who dropped in" },
+        { "type": "text", "key": "headingSubscriptions", "label": "Subscription heading", "default": "Subscribers" },
+        { "type": "text", "key": "headingGifts", "label": "Gifted-sub heading", "default": "Gifted subs" },
+        { "type": "text", "key": "headingCheers", "label": "Cheer heading", "default": "Cheers" },
+        { "type": "text", "key": "headingRaids", "label": "Raid heading", "default": "Raids" },
+        { "type": "text", "key": "headingFollows", "label": "Follow heading", "default": "New followers" }
+      ]
+    },
+    {
+      "title": "Credit wording",
+      "collapsible": true,
+      "initiallyExpanded": false,
+      "description": "Use {user}, {quantity}, {months}, or {tier}. Changes are applied to already-recorded events in the current recap.",
+      "controls": [
+        { "type": "text", "key": "templateModerators", "label": "Moderator line", "default": "{user}" },
+        { "type": "text", "key": "templateSubscriptions", "label": "New subscription line", "default": "{user} ({tier})" },
+        { "type": "text", "key": "templateSubiversaries", "label": "Subiversary line", "default": "{user} — {months} months" },
+        { "type": "text", "key": "templateGifts", "label": "Gifted-sub line", "default": "{user} — {quantity} gifted subs" },
+        { "type": "text", "key": "templateCheers", "label": "Cheer line", "default": "{user} — {quantity} bits" },
+        { "type": "text", "key": "templateRaids", "label": "Raid line", "default": "{user} — {quantity} viewers" },
+        { "type": "text", "key": "templateFollows", "label": "Follow line", "default": "{user}" }
+      ]
+    },
+    {
+      "title": "OBS end-credits source",
+      "description": "Connect Forge to OBS, refresh, then select an existing scene and text source. Forge updates that source with the preview above.",
+      "controls": [
+        { "type": "toggle", "key": "manageObsCredits", "label": "Update the selected OBS text source", "default": true },
+        { "type": "obs-scene-source", "key": "obsCreditsTarget", "label": "OBS destination" },
+        { "type": "toggle", "key": "switchSceneAtStreamEnd", "label": "Switch to the selected scene when streaming ends", "default": false }
       ]
     }
   ]
