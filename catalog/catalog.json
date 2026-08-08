@@ -86,11 +86,11 @@
       "description": "Collects important stream events and turns the same recap into OBS end credits.",
       "author": "Forge Tools",
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/stream-recap-v0.1.0/Forge.StreamRecap-0.1.0.zip",
-      "sha256": "",
+      "sha256": "213182236B690766518457C631951A5F28D6D81FE9DEE3228E90B1614959201D",
       "forgeApi": "2",
       "minimumCoreVersion": "0.5.0",
       "verified": false,
-      "available": false,
+      "available": true,
       "permissions": [
         "obs.read",
         "obs.control",
