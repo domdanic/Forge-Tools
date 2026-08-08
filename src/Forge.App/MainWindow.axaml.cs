@@ -516,12 +516,17 @@ public sealed partial class MainWindow : Window
         else if (spec.Type.Equals("multiline", StringComparison.OrdinalIgnoreCase)) field = new TextBox { Text = ReadString(settings, spec.Key, spec.Default), AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, MinHeight = 140 };
         else field = new TextBox { Text = ReadString(settings, spec.Key, spec.Default) };
         fields[spec.Key] = field; panel.Children.Add(field);
+        if (field is TextBox text) text.LostFocus += (_, _) => SavePlugin(pluginId);
+        else if (field is CheckBox check) check.IsCheckedChanged += (_, _) => SavePlugin(pluginId);
+        else if (field is ComboBox combo) combo.SelectionChanged += (_, _) => SavePlugin(pluginId);
     }
 
     private void SavePlugin(string pluginId)
     {
         var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, ObsSceneSourcePicker picker => picker.Selection, RecapCategoryOrderEditor editor => editor.Order, _ => null });
-        _plugins.SaveSettings(pluginId, values); StatusText.Text = "Settings saved";
+        _plugins.SaveSettings(pluginId, values);
+        foreach (var preview in _fields[pluginId].Values.OfType<RecapPreviewControl>()) _ = preview.RefreshSoonAsync();
+        StatusText.Text = "Settings saved";
     }
 
     private async Task ExportPluginSettingsAsync(InstalledPlugin plugin)

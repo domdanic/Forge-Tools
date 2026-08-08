@@ -83,7 +83,11 @@ public sealed class StreamRecapPlugin : IForgePlugin
         await _gate.WaitAsync();
         try
         {
-            if (active) BeginSession(DateTimeOffset.UtcNow);
+            if (active)
+            {
+                BeginSession(DateTimeOffset.UtcNow);
+                await RenderCoreAsync(CancellationToken.None);
+            }
             else
             {
                 _recap.EndedAt = DateTimeOffset.UtcNow;
