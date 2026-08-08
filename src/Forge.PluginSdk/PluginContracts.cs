@@ -98,6 +98,12 @@ public sealed record TwitchChatMessage(
     bool IsModerator,
     DateTimeOffset At);
 public sealed record TwitchAdBreakStarted(int DurationSeconds, DateTimeOffset StartedAt, bool IsAutomatic);
+public sealed record TwitchFollowed(string UserId, string UserLogin, string UserName, DateTimeOffset At);
+public sealed record TwitchSubscribed(string UserId, string UserLogin, string UserName, string Tier, bool IsGift, DateTimeOffset At);
+public sealed record TwitchSubscriptionMessage(string UserId, string UserLogin, string UserName, string Tier, int CumulativeMonths, int? StreakMonths, int DurationMonths, string Message, DateTimeOffset At);
+public sealed record TwitchSubscriptionGifted(string UserId, string UserLogin, string UserName, string Tier, int Total, int? CumulativeTotal, bool IsAnonymous, DateTimeOffset At);
+public sealed record TwitchCheered(string UserId, string UserLogin, string UserName, int Bits, string Message, bool IsAnonymous, DateTimeOffset At);
+public sealed record TwitchRaided(string UserId, string UserLogin, string UserName, int Viewers, DateTimeOffset At);
 public sealed record TimedAnnouncementTestRequested(string Kind, string? RuleId = null);
 
 public sealed record PluginUi

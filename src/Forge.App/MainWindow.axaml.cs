@@ -221,7 +221,8 @@ public sealed partial class MainWindow : Window
             plugin.Manifest.Permissions.All(permission => _permissions.Allows(plugin.Manifest.Id, permission))).ToList();
         var includeChat = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.chat.read", StringComparer.OrdinalIgnoreCase));
         var includeAds = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.ads.read", StringComparer.OrdinalIgnoreCase));
-        if (_twitch.Identity is not null && (includeChat || includeAds)) await _twitchChat.StartAsync(includeChat, includeAds);
+        var includeRecapEvents = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.events.read", StringComparer.OrdinalIgnoreCase));
+        if (_twitch.Identity is not null && (includeChat || includeAds || includeRecapEvents)) await _twitchChat.StartAsync(includeChat, includeAds, includeRecapEvents);
         else await _twitchChat.StopAsync();
     }
 

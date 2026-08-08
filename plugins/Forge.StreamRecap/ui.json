@@ -1,0 +1,23 @@
+{
+  "sections": [
+    {
+      "title": "Recap",
+      "description": "Forge records follows, subscriptions, sub anniversaries, gift batches, cheers, and incoming raids while OBS is streaming. recap.json and credits.txt are written to this plugin's data folder.",
+      "controls": [
+        { "type": "toggle", "key": "includeFollows", "label": "Include follows", "default": true },
+        { "type": "text", "key": "maximumEvents", "label": "Maximum events in credits", "default": "100" },
+        { "type": "text", "key": "creditsHeading", "label": "Credits heading", "default": "Thanks for watching!" }
+      ]
+    },
+    {
+      "title": "OBS end-credits scene",
+      "description": "The plugin creates or updates one OBS text source from the exact same ordered recap list.",
+      "controls": [
+        { "type": "toggle", "key": "manageObsCredits", "label": "Create and update an OBS credits text source", "default": true },
+        { "type": "text", "key": "sceneName", "label": "OBS scene name", "default": "Stream Credits" },
+        { "type": "text", "key": "inputName", "label": "OBS text source name", "default": "Forge Stream Credits" },
+        { "type": "toggle", "key": "switchSceneAtStreamEnd", "label": "Switch to the credits scene when streaming ends", "default": false }
+      ]
+    }
+  ]
+}

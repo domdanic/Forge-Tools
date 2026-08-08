@@ -85,8 +85,14 @@ internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string>
             throw new UnauthorizedAccessException($"{pluginId} requires twitch.chat.read to receive chat messages.");
         if (typeof(T) == typeof(TwitchAdBreakStarted) && !grants.Contains("twitch.ads.read"))
             throw new UnauthorizedAccessException($"{pluginId} requires twitch.ads.read to receive ad events.");
+        if (IsRecapEvent(typeof(T)) && !grants.Contains("twitch.events.read"))
+            throw new UnauthorizedAccessException($"{pluginId} requires twitch.events.read to receive Twitch engagement events.");
         return inner.Subscribe(handler);
     }
+
+    private static bool IsRecapEvent(Type type) => type == typeof(TwitchFollowed) || type == typeof(TwitchSubscribed) ||
+        type == typeof(TwitchSubscriptionMessage) || type == typeof(TwitchSubscriptionGifted) ||
+        type == typeof(TwitchCheered) || type == typeof(TwitchRaided);
 
     public Task PublishAsync<T>(T message, CancellationToken cancellationToken = default) => inner.PublishAsync(message, cancellationToken);
 }
