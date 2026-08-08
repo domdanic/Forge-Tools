@@ -16,6 +16,7 @@ public sealed class TwitchChatService : IAsyncDisposable
     private Task? _worker;
     private bool _includeChat;
     private bool _includeAds;
+    private bool _includeRecapEvents;
 
     public TwitchChatService(TwitchAuthService auth, IForgeEventBus events, ForgeLogger log)
     {
@@ -24,12 +25,13 @@ public sealed class TwitchChatService : IAsyncDisposable
         _log = log;
     }
 
-    public async Task StartAsync(bool includeChat = true, bool includeAds = false, CancellationToken cancellationToken = default)
+    public async Task StartAsync(bool includeChat = true, bool includeAds = false, bool includeRecapEvents = false, CancellationToken cancellationToken = default)
     {
         await StopAsync();
         if (_auth.Identity is null) return;
         _includeChat = includeChat;
         _includeAds = includeAds;
+        _includeRecapEvents = includeRecapEvents;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _worker = RunAsync(_lifetime.Token);
     }
@@ -79,6 +81,7 @@ public sealed class TwitchChatService : IAsyncDisposable
                         ?? throw new InvalidDataException("Twitch chat session did not include an ID.");
                     if (_includeChat) await _auth.CreateChatSubscriptionAsync(sessionId, cancellationToken);
                     if (_includeAds) await _auth.CreateAdSubscriptionAsync(sessionId, cancellationToken);
+                    if (_includeRecapEvents) await _auth.CreateRecapSubscriptionsAsync(sessionId, cancellationToken);
                     await _log.WriteAsync("INFO", "TwitchEventSub", "Twitch event subscriptions connected.");
                 }
             }
@@ -116,6 +119,32 @@ public sealed class TwitchChatService : IAsyncDisposable
             catch (Exception ex) { await _log.WriteAsync("ERROR", "TwitchEventSub", "An ad event subscriber failed", ex); }
             return;
         }
+        try
+        {
+            var at = GetTimestamp(item, "followed_at") ?? DateTimeOffset.UtcNow;
+            switch (subscriptionType)
+            {
+                case "channel.follow":
+                    await _events.PublishAsync(new TwitchFollowed(Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), at), cancellationToken);
+                    return;
+                case "channel.subscribe":
+                    await _events.PublishAsync(new TwitchSubscribed(Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), Get(item, "tier"), GetBool(item, "is_gift"), at), cancellationToken);
+                    return;
+                case "channel.subscription.message":
+                    await _events.PublishAsync(new TwitchSubscriptionMessage(Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), Get(item, "tier"), GetInt(item, "cumulative_months"), GetNullableInt(item, "streak_months"), GetInt(item, "duration_months"), item.TryGetProperty("message", out var subMessage) ? Get(subMessage, "text") : "", at), cancellationToken);
+                    return;
+                case "channel.subscription.gift":
+                    await _events.PublishAsync(new TwitchSubscriptionGifted(Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), Get(item, "tier"), GetInt(item, "total"), GetNullableInt(item, "cumulative_total"), GetBool(item, "is_anonymous"), at), cancellationToken);
+                    return;
+                case "channel.cheer":
+                    await _events.PublishAsync(new TwitchCheered(Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), GetInt(item, "bits"), Get(item, "message"), GetBool(item, "is_anonymous"), at), cancellationToken);
+                    return;
+                case "channel.raid":
+                    await _events.PublishAsync(new TwitchRaided(Get(item, "from_broadcaster_user_id"), Get(item, "from_broadcaster_user_login"), Get(item, "from_broadcaster_user_name"), GetInt(item, "viewers"), at), cancellationToken);
+                    return;
+            }
+        }
+        catch (Exception ex) { await _log.WriteAsync("ERROR", "TwitchEventSub", $"A {subscriptionType} event subscriber failed", ex); return; }
         if (subscriptionType != "channel.chat.message") return;
         var userId = item.GetProperty("chatter_user_id").GetString() ?? "";
         var broadcasterId = item.GetProperty("broadcaster_user_id").GetString() ?? "";
@@ -134,6 +163,12 @@ public sealed class TwitchChatService : IAsyncDisposable
         try { await _events.PublishAsync(chat, cancellationToken); }
         catch (Exception ex) { await _log.WriteAsync("ERROR", "TwitchChat", "A chat event subscriber failed", ex); }
     }
+
+    private static string Get(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
+    private static int GetInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : 0;
+    private static int? GetNullableInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null && value.TryGetInt32(out var result) ? result : null;
+    private static bool GetBool(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+    private static DateTimeOffset? GetTimestamp(JsonElement item, string name) => item.TryGetProperty(name, out var value) && DateTimeOffset.TryParse(value.GetString(), out var result) ? result : null;
 
     private static async Task<JsonElement> ReceiveAsync(ClientWebSocket socket, CancellationToken cancellationToken)
     {

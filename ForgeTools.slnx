@@ -4,6 +4,7 @@
     <Project Path="plugins/Forge.CategorySwitcher/Forge.CategorySwitcher.csproj" />
     <Project Path="plugins/Forge.ChatGames/Forge.ChatGames.csproj" />
     <Project Path="plugins/Forge.TimedAnnouncements/Forge.TimedAnnouncements.csproj" />
+    <Project Path="plugins/Forge.StreamRecap/Forge.StreamRecap.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Forge.App/Forge.App.csproj" />

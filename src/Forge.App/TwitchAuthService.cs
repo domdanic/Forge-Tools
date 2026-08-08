@@ -12,7 +12,7 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads";
+    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
     private TwitchTokens? _tokens;
@@ -180,6 +180,31 @@ public sealed class TwitchAuthService
             type = "channel.ad_break.begin",
             version = "1",
             condition = new { broadcaster_user_id = Identity.UserId },
+            transport = new { method = "websocket", session_id = sessionId }
+        }, cancellationToken);
+    }
+
+    public async Task CreateRecapSubscriptionsAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        await CreateSubscriptionAsync("channel.follow", "2", new { broadcaster_user_id = Identity.UserId, moderator_user_id = Identity.UserId }, sessionId, "moderator:read:followers", cancellationToken);
+        await CreateSubscriptionAsync("channel.subscribe", "1", new { broadcaster_user_id = Identity.UserId }, sessionId, "channel:read:subscriptions", cancellationToken);
+        await CreateSubscriptionAsync("channel.subscription.message", "1", new { broadcaster_user_id = Identity.UserId }, sessionId, "channel:read:subscriptions", cancellationToken);
+        await CreateSubscriptionAsync("channel.subscription.gift", "1", new { broadcaster_user_id = Identity.UserId }, sessionId, "channel:read:subscriptions", cancellationToken);
+        await CreateSubscriptionAsync("channel.cheer", "1", new { broadcaster_user_id = Identity.UserId }, sessionId, "bits:read", cancellationToken);
+        await CreateSubscriptionAsync("channel.raid", "1", new { to_broadcaster_user_id = Identity.UserId }, sessionId, null, cancellationToken);
+    }
+
+    private async Task CreateSubscriptionAsync(string type, string version, object condition, string sessionId, string? requiredScope, CancellationToken cancellationToken)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (requiredScope is not null && !Identity.Scopes.Contains(requiredScope, StringComparer.Ordinal))
+            throw new InvalidOperationException($"Reconnect Twitch to grant {requiredScope} permission.");
+        using var response = await SendHelixAsync(HttpMethod.Post, "eventsub/subscriptions", new
+        {
+            type,
+            version,
+            condition,
             transport = new { method = "websocket", session_id = sessionId }
         }, cancellationToken);
     }
