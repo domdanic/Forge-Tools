@@ -152,14 +152,17 @@ public sealed class TwitchChatService : IAsyncDisposable
             ? badgesElement.EnumerateArray().Select(badge => badge.GetProperty("set_id").GetString()).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : [];
         var chat = new TwitchChatMessage(
-            messageId,
+            Get(item, "message_id"),
             userId,
             item.GetProperty("chatter_user_login").GetString() ?? "",
             item.GetProperty("chatter_user_name").GetString() ?? "",
             item.GetProperty("message").GetProperty("text").GetString() ?? "",
             userId == broadcasterId || badges.Contains("broadcaster"),
             badges.Contains("moderator"),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            NullIfEmpty(Get(item, "source_broadcaster_user_id")),
+            NullIfEmpty(Get(item, "source_message_id")),
+            GetBool(item, "is_source_only"));
         try { await _events.PublishAsync(chat, cancellationToken); }
         catch (Exception ex) { await _log.WriteAsync("ERROR", "TwitchChat", "A chat event subscriber failed", ex); }
     }
@@ -168,6 +171,7 @@ public sealed class TwitchChatService : IAsyncDisposable
     private static int GetInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : 0;
     private static int? GetNullableInt(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null && value.TryGetInt32(out var result) ? result : null;
     private static bool GetBool(JsonElement item, string name) => item.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
     private static DateTimeOffset? GetTimestamp(JsonElement item, string name) => item.TryGetProperty(name, out var value) && DateTimeOffset.TryParse(value.GetString(), out var result) ? result : null;
 
     private static async Task<JsonElement> ReceiveAsync(ClientWebSocket socket, CancellationToken cancellationToken)

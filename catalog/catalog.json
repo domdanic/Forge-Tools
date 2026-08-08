@@ -98,6 +98,24 @@
         "twitch.events.read",
         "storage.local"
       ]
+    },
+    {
+      "id": "tools.forge.link-protection",
+      "name": "Link Protection",
+      "version": "0.1.0",
+      "description": "Removes non-whitelisted links originating in your Twitch chat while ignoring links from other Shared Chat channels.",
+      "author": "Forge Tools",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/link-protection-v0.1.0/Forge.LinkProtection-0.1.0.zip",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.5.3",
+      "verified": false,
+      "available": false,
+      "permissions": [
+        "twitch.chat.read",
+        "twitch.chat.moderate",
+        "storage.local"
+      ]
     }
   ]
 }

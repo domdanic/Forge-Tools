@@ -40,7 +40,7 @@ Copy `templates/Forge.PluginTemplate`, change its ID and metadata, and implement
 
 Plugins declare all requested permissions in `plugin.json`. Forge does not expose shared connection services until the user grants those permissions.
 
-Forge's maintained plugins include Category Switcher, Capture Switcher, Timed Announcements, Chat Games, and Stream Recap & Credits. Stream Recap records one ordered list of important Twitch events per OBS stream, writes reusable JSON/text output, and keeps an OBS end-credits text source synchronized from that same list.
+Forge's maintained plugins include Category Switcher, Capture Switcher, Timed Announcements, Chat Games, Stream Recap & Credits, and Link Protection. Link Protection removes non-whitelisted links that originate in the broadcaster's own Twitch chat while deliberately ignoring relayed messages from other Shared Chat channels.
 
 Chat Games only awards passive points to accounts it has actually observed speaking in chat recently; Twitch does not provide a complete reliable viewer list. Its points have no cash value. Plugin configuration is included in Forge's settings export, while live balances and timer state remain portable in the profile's plugin-data folder and survive updates.
 
