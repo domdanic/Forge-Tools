@@ -1,0 +1,21 @@
+{
+  "sections": [
+    {
+      "title": "Protection",
+      "description": "Only messages originating in your own channel are moderated. Links relayed from another Shared Chat channel are always ignored.",
+      "controls": [
+        { "type": "toggle", "key": "enabled", "label": "Remove non-whitelisted links", "default": true },
+        { "type": "toggle", "key": "allowTwitchLinks", "label": "Allow all twitch.tv links, including clips", "default": true },
+        { "type": "toggle", "key": "exemptModerators", "label": "Allow moderators to post any link", "default": true },
+        { "type": "toggle", "key": "dryRun", "label": "Audit only—do not delete messages", "default": false }
+      ]
+    },
+    {
+      "title": "Allowed domains",
+      "description": "Enter one domain or URL per line. Schemes and paths are normalized away: https://example.com, example.com, and example.com/socials all identify the same allowed domain. Subdomains are included.",
+      "controls": [
+        { "type": "multiline", "key": "allowedDomains", "label": "Domain whitelist", "default": "" }
+      ]
+    }
+  ]
+}

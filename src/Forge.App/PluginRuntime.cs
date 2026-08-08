@@ -105,6 +105,7 @@ public sealed class TwitchConnectionView(TwitchAuthService auth) : ITwitchConnec
     public Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default) => auth.GetChannelAsync(cancellationToken);
     public Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default) => auth.UpdateCategoryAsync(categoryId, cancellationToken);
     public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => auth.SendChatMessageAsync(message, cancellationToken);
+    public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) => auth.DeleteChatMessageAsync(messageId, cancellationToken);
     public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) => auth.GetAdScheduleAsync(cancellationToken);
 }
 
@@ -145,6 +146,7 @@ internal sealed class PermissionedConnections(string pluginId, IReadOnlySet<stri
         public Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default) { Require("twitch.channel.read"); return inner.GetChannelAsync(cancellationToken); }
         public Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default) { Require("twitch.channel.manage.broadcast"); return inner.UpdateCategoryAsync(categoryId, cancellationToken); }
         public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) { Require("twitch.chat.write"); return inner.SendChatMessageAsync(message, cancellationToken); }
+        public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) { Require("twitch.chat.moderate"); return inner.DeleteChatMessageAsync(messageId, cancellationToken); }
         public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) { Require("twitch.ads.read"); return inner.GetAdScheduleAsync(cancellationToken); }
         private void Require(string permission) { if (!grants.Contains(permission)) throw new UnauthorizedAccessException($"{pluginId} does not have {permission} permission."); }
     }

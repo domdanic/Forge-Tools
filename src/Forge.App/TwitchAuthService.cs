@@ -12,7 +12,7 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers";
+    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
     private TwitchTokens? _tokens;
@@ -136,6 +136,17 @@ public sealed class TwitchAuthService
             var reason = result.TryGetProperty("drop_reason", out var drop) && drop.TryGetProperty("message", out var detail) ? detail.GetString() : null;
             throw new InvalidOperationException(reason ?? "Twitch did not send the chat message.");
         }
+    }
+
+    public async Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (!Identity.Scopes.Contains("moderator:manage:chat_messages", StringComparer.Ordinal))
+            throw new InvalidOperationException("Reconnect Twitch to grant chat-moderation permission.");
+        if (string.IsNullOrWhiteSpace(messageId)) throw new ArgumentException("A Twitch message ID is required.", nameof(messageId));
+        using var response = await SendHelixAsync(HttpMethod.Delete,
+            $"moderation/chat?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&moderator_id={Uri.EscapeDataString(Identity.UserId)}&message_id={Uri.EscapeDataString(messageId)}",
+            null, cancellationToken);
     }
 
     public async Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default)

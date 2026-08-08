@@ -64,6 +64,7 @@ public interface ITwitchConnection
     Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default);
     Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default);
     Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default);
+    Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default);
     Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default);
 }
 
@@ -96,7 +97,10 @@ public sealed record TwitchChatMessage(
     string Text,
     bool IsBroadcaster,
     bool IsModerator,
-    DateTimeOffset At);
+    DateTimeOffset At,
+    string? SourceBroadcasterUserId = null,
+    string? SourceMessageId = null,
+    bool IsSourceOnly = false);
 public sealed record TwitchAdBreakStarted(int DurationSeconds, DateTimeOffset StartedAt, bool IsAutomatic);
 public sealed record TwitchFollowed(string UserId, string UserLogin, string UserName, DateTimeOffset At);
 public sealed record TwitchSubscribed(string UserId, string UserLogin, string UserName, string Tier, bool IsGift, DateTimeOffset At);
