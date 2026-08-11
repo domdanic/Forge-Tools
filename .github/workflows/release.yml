@@ -31,7 +31,17 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path publish/${{ matrix.rid }}/data | Out-Null
+          if ('${{ matrix.rid }}' -eq 'win-x64') {
+            Copy-Item -LiteralPath publish/${{ matrix.rid }}/Forge.App.exe -Destination 'publish/${{ matrix.rid }}/Forge Tools.exe'
+          }
           Get-ChildItem publish/${{ matrix.rid }} -Filter *.pdb -Recurse | Remove-Item -Force
+      - name: Verify friendly Windows launcher
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath 'publish/win-x64/Forge Tools.exe')) {
+            throw 'Release is missing its friendly Forge Tools launcher.'
+          }
       - name: Create package
         shell: pwsh
         run: |
