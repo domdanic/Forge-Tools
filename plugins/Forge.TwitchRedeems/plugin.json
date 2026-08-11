@@ -1,11 +1,11 @@
 {
   "id": "tools.forge.twitch-redeems",
   "name": "Twitch Redeems",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Creates and manages Twitch Channel Point rewards and turns redemptions into Forge automation triggers.",
   "author": "Forge Tools",
   "forgeApi": "2",
-  "minimumCoreVersion": "0.6.0",
+  "minimumCoreVersion": "0.6.1",
   "entryAssembly": "Forge.TwitchRedeems.dll",
   "entryType": "Forge.TwitchRedeems.TwitchRedeemsPlugin",
   "ui": "ui.json",

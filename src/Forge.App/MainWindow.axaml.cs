@@ -158,7 +158,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var identity = await _twitch.RestoreAsync();
-            SetTwitchIdentity(identity);
+            await SetTwitchIdentityAsync(identity);
             await UpdateTwitchChatStateAsync();
         }
         catch (Exception ex)
@@ -173,7 +173,7 @@ public sealed partial class MainWindow : Window
         {
             await _twitchChat.StopAsync();
             await _twitch.SignOutAsync();
-            SetTwitchIdentity(null);
+            await SetTwitchIdentityAsync(null);
             StatusText.Text = "Signed out of Twitch";
             return;
         }
@@ -201,22 +201,26 @@ public sealed partial class MainWindow : Window
             cancellation.CancelAfter(Timeout.InfiniteTimeSpan);
             dialog.Close();
             await showing;
-            SetTwitchIdentity(identity);
+            await SetTwitchIdentityAsync(identity);
             await UpdateTwitchChatStateAsync();
             StatusText.Text = $"Connected to Twitch as {identity.Login}";
         }
-        catch (OperationCanceledException) { SetTwitchIdentity(null); }
-        catch (Exception ex) { if (dialog?.IsVisible == true) dialog.Close(); SetTwitchIdentity(null); await ShowNoticeAsync("Twitch connection failed", ex.Message); }
+        catch (OperationCanceledException) { await SetTwitchIdentityAsync(null); }
+        catch (Exception ex) { if (dialog?.IsVisible == true) dialog.Close(); await SetTwitchIdentityAsync(null); await ShowNoticeAsync("Twitch connection failed", ex.Message); }
         finally { if (_twitchAction is not null) _twitchAction.IsEnabled = true; }
     }
 
-    private void SetTwitchIdentity(TwitchIdentity? identity)
+    private async Task SetTwitchIdentityAsync(TwitchIdentity? identity)
     {
-        if (_twitchStatus is null || _twitchAction is null) return;
-        _twitchAction.Tag = identity;
-        _twitchAction.Content = identity is null ? "Sign in with Twitch" : "Sign out";
-        _twitchStatus.Text = identity is null ? "Signed out" : $"Connected as {identity.Login}";
-        _twitchStatus.Foreground = identity is null ? Brushes.Goldenrod : Brushes.LightGreen;
+        if (_twitchStatus is not null && _twitchAction is not null)
+        {
+            _twitchAction.Tag = identity;
+            _twitchAction.Content = identity is null ? "Sign in with Twitch" : "Sign out";
+            _twitchStatus.Text = identity is null ? "Signed out" : $"Connected as {identity.Login}";
+            _twitchStatus.Foreground = identity is null ? Brushes.Goldenrod : Brushes.LightGreen;
+        }
+        try { await _events.PublishAsync(new TwitchConnectionChanged(identity is not null, identity?.Login)); }
+        catch (Exception ex) { await _logger.WriteAsync("WARN", "forge.core.twitch", "A plugin failed while handling the Twitch connection change.", ex); }
     }
 
     private async Task UpdateTwitchChatStateAsync()
