@@ -12,20 +12,26 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages channel:manage:redemptions moderator:read:chatters";
+    public const string BroadcasterScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages channel:manage:redemptions moderator:read:chatters";
+    public const string BotScopes = "user:write:chat";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
+    private readonly string _requestedScopes;
     private TwitchTokens? _tokens;
     public TwitchIdentity? Identity { get; private set; }
 
-    public TwitchAuthService(string credentialsDirectory) => _credentialPath = Path.Combine(credentialsDirectory, "twitch.oauth");
+    public TwitchAuthService(string credentialsDirectory, string credentialFile = "twitch.oauth", string requestedScopes = BroadcasterScopes)
+    {
+        _credentialPath = Path.Combine(credentialsDirectory, credentialFile);
+        _requestedScopes = requestedScopes;
+    }
 
     public async Task<TwitchDeviceAuthorization> BeginAsync(CancellationToken cancellationToken)
     {
         using var response = await _http.PostAsync("https://id.twitch.tv/oauth2/device", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = ClientId,
-            ["scopes"] = RequestedScopes
+            ["scopes"] = _requestedScopes
         }), cancellationToken);
         await EnsureSuccessAsync(response);
         var dto = await JsonSerializer.DeserializeAsync<DeviceResponse>(await response.Content.ReadAsStreamAsync(cancellationToken), JsonOptions, cancellationToken)
@@ -42,7 +48,7 @@ public sealed class TwitchAuthService
             using var response = await _http.PostAsync("https://id.twitch.tv/oauth2/token", new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["client_id"] = ClientId,
-                ["scopes"] = RequestedScopes,
+                ["scopes"] = _requestedScopes,
                 ["device_code"] = authorization.DeviceCode,
                 ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code"
             }), cancellationToken);
@@ -176,14 +182,18 @@ public sealed class TwitchAuthService
     private static object RewardBody(TwitchCustomRewardRequest reward) => new { title = reward.Title, prompt = reward.Prompt, cost = reward.Cost, is_enabled = reward.IsEnabled, is_user_input_required = reward.IsUserInputRequired, should_redemptions_skip_request_queue = reward.SkipRequestQueue };
     private static TwitchCustomReward ParseReward(JsonElement item, bool manageable) => new(item.GetProperty("id").GetString() ?? "", item.GetProperty("title").GetString() ?? "", item.GetProperty("prompt").GetString() ?? "", item.GetProperty("cost").GetInt32(), item.GetProperty("is_enabled").GetBoolean(), item.GetProperty("is_paused").GetBoolean(), item.GetProperty("is_user_input_required").GetBoolean(), item.GetProperty("should_redemptions_skip_request_queue").GetBoolean(), manageable);
 
-    public async Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default)
+    public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) =>
+        SendChatMessageAsync(message, Identity?.UserId, cancellationToken);
+
+    public async Task SendChatMessageAsync(string message, string? broadcasterId, CancellationToken cancellationToken = default)
     {
         if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (string.IsNullOrWhiteSpace(broadcasterId)) throw new InvalidOperationException("Connect the broadcaster account before sending chat messages.");
         message = message.Trim();
         if (message.Length is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(message), "A Twitch chat message must be between 1 and 500 characters.");
         using var response = await SendHelixAsync(HttpMethod.Post, "chat/messages", new
         {
-            broadcaster_id = Identity.UserId,
+            broadcaster_id = broadcasterId,
             sender_id = Identity.UserId,
             message
         }, cancellationToken);
@@ -298,7 +308,7 @@ public sealed class TwitchAuthService
         await EnsureSuccessAsync(response); return response;
     }
 
-    private static bool HasRequiredScopes(TwitchIdentity identity) => RequestedScopes.Split(' ').All(required => identity.Scopes.Contains(required, StringComparer.Ordinal));
+    private bool HasRequiredScopes(TwitchIdentity identity) => _requestedScopes.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(required => identity.Scopes.Contains(required, StringComparer.Ordinal));
 
     private async Task RefreshAsync(CancellationToken cancellationToken)
     {

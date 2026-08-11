@@ -23,7 +23,7 @@ jobs:
           "PACKAGE=$output" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SHA256=$((Get-FileHash $output -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - uses: softprops/action-gh-release@v2
-        with: { files: '${{ env.PACKAGE }}' }
+        with: { files: '${{ env.PACKAGE }}', make_latest: false }
       - name: Publish catalogue entry
         shell: pwsh
         run: |

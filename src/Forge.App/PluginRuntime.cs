@@ -118,13 +118,13 @@ internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string>
 }
 
 public sealed class ForgeConnections(IObsConnection obs, ITwitchConnection twitch) : IForgeConnections { public IObsConnection Obs { get; } = obs; public ITwitchConnection Twitch { get; } = twitch; }
-public sealed class TwitchConnectionView(TwitchAuthService auth) : ITwitchConnection
+public sealed class TwitchConnectionView(TwitchAuthService auth, TwitchOutboundChatService? outboundChat = null) : ITwitchConnection
 {
     public bool IsConnected => auth.Identity is not null; public string? Login => auth.Identity?.Login;
     public Task<TwitchCategory?> FindCategoryAsync(string exactName, CancellationToken cancellationToken = default) => auth.FindCategoryAsync(exactName, cancellationToken);
     public Task<TwitchChannel?> GetChannelAsync(CancellationToken cancellationToken = default) => auth.GetChannelAsync(cancellationToken);
     public Task UpdateCategoryAsync(string categoryId, CancellationToken cancellationToken = default) => auth.UpdateCategoryAsync(categoryId, cancellationToken);
-    public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => auth.SendChatMessageAsync(message, cancellationToken);
+    public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => outboundChat?.SendChatMessageAsync(message, cancellationToken) ?? auth.SendChatMessageAsync(message, cancellationToken);
     public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) => auth.DeleteChatMessageAsync(messageId, cancellationToken);
     public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) => auth.GetAdScheduleAsync(cancellationToken);
     public Task<IReadOnlyList<TwitchChatter>> GetChattersAsync(CancellationToken cancellationToken = default) => auth.GetChattersAsync(cancellationToken);

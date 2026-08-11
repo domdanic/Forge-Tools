@@ -15,6 +15,8 @@ public sealed partial class MainWindow : Window
     private static readonly IBrush PanelBrush = Brush.Parse("#191C22");
     private readonly PluginManager _plugins = new();
     private readonly TwitchAuthService _twitch;
+    private readonly TwitchAuthService _twitchBot;
+    private readonly TwitchOutboundChatService _outboundChat;
     private readonly ForgeEventBus _events = new();
     private readonly ForgeLogger _logger;
     private readonly CredentialStore _credentials;
@@ -32,18 +34,22 @@ public sealed partial class MainWindow : Window
     private StackPanel? _catalogList;
     private TextBlock? _twitchStatus;
     private Button? _twitchAction;
+    private TextBlock? _twitchBotStatus;
+    private Button? _twitchBotAction;
     private TextBlock? _obsStatus;
 
     public MainWindow()
     {
         _twitch = new(_plugins.CredentialsDirectory);
+        _twitchBot = new(_plugins.CredentialsDirectory, "twitch.bot.oauth", TwitchAuthService.BotScopes);
+        _outboundChat = new(_twitch, _twitchBot);
         _logger = new(_plugins.LogsDirectory);
         _credentials = new(_plugins.CredentialsDirectory);
         _obs = new(_events, _logger);
         _twitchChat = new(_twitch, _events, _logger);
         _permissions = new(_plugins.SettingsDirectory);
         _automation = new(_plugins.SettingsDirectory, _logger);
-        _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
+        _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch, _outboundChat)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
         _updates = new(_plugins.CacheDirectory);
         _diagnostics = new(_plugins);
         _plugins.Profiles.Changed += async (_, changed) => await _events.PublishAsync(changed);
@@ -94,6 +100,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(Heading("Connections", 28));
         panel.Children.Add(Secondary("Connect once in Forge Core. Plugins request permission to use shared services rather than collecting separate credentials."));
         var saved = _plugins.LoadSettings("forge.core.connections");
+        _outboundChat.PreferBot = ReadBool(saved, "twitchUseBot", false);
 
         var obs = new StackPanel();
         var obsHost = Field(obs, "Host", ReadString(saved, "obsHost", "127.0.0.1"));
@@ -112,7 +119,7 @@ public sealed partial class MainWindow : Window
         saveObs.Click += (_, _) =>
         {
             var current = _plugins.LoadSettings("forge.core.connections");
-            SaveConnections(obsHost.Text ?? "127.0.0.1", obsPort.Text ?? "4455", obsAuto.IsChecked ?? false, ReadString(current, "twitchChannel", ""));
+            SaveConnections(obsHost.Text ?? "127.0.0.1", obsPort.Text ?? "4455", obsAuto.IsChecked ?? false, ReadString(current, "twitchChannel", ""), ReadBool(current, "twitchUseBot", false));
             if (rememberObs.IsChecked == true && !string.IsNullOrEmpty(obsPassword.Text)) _credentials.Save("obs.websocket.password", obsPassword.Text);
             else _credentials.Delete("obs.websocket.password");
             StatusText.Text = "OBS settings saved";
@@ -140,16 +147,46 @@ public sealed partial class MainWindow : Window
         var channel = Field(twitch, "Channel name", ReadString(saved, "twitchChannel", ""));
         var twitchActions = new StackPanel { Orientation = Orientation.Horizontal };
         var saveTwitch = Button("Save channel");
-        saveTwitch.Click += (_, _) => { var current = _plugins.LoadSettings("forge.core.connections"); SaveConnections(ReadString(current, "obsHost", "127.0.0.1"), ReadString(current, "obsPort", "4455"), ReadBool(current, "obsAutoConnect", true), channel.Text ?? ""); StatusText.Text = "Twitch channel saved"; };
+        saveTwitch.Click += (_, _) => { var current = _plugins.LoadSettings("forge.core.connections"); SaveConnections(ReadString(current, "obsHost", "127.0.0.1"), ReadString(current, "obsPort", "4455"), ReadBool(current, "obsAutoConnect", true), channel.Text ?? "", ReadBool(current, "twitchUseBot", false)); StatusText.Text = "Twitch channel saved"; };
         _twitchAction = Button("Sign in with Twitch");
         _twitchAction.Click += async (_, _) => await ConnectTwitchAsync();
         _twitchStatus = Status("Checking account…");
         twitchActions.Children.Add(saveTwitch); twitchActions.Children.Add(_twitchAction); twitchActions.Children.Add(_twitchStatus); twitch.Children.Add(twitchActions);
-        panel.Children.Add(ConnectionCard("Twitch", "One Forge sign-in for chat, channel events, moderation, alerts, and plugin permissions.", twitch));
+        twitch.Children.Add(Heading("Optional bot account", 17, new(0, 20, 0, 4)));
+        twitch.Children.Add(Secondary("Connect a separate Twitch account for messages sent by plugins, such as announcements, game replies, and future chatbot responses. Channel management and events always stay on the broadcaster account."));
+        var useBot = new CheckBox { Content = "Send plugin messages through the bot account when it is connected", IsChecked = _outboundChat.PreferBot, Margin = new(0, 0, 0, 10) };
+        useBot.IsCheckedChanged += (_, _) =>
+        {
+            _outboundChat.PreferBot = useBot.IsChecked == true;
+            var current = _plugins.LoadSettings("forge.core.connections");
+            SaveConnections(ReadString(current, "obsHost", "127.0.0.1"), ReadString(current, "obsPort", "4455"), ReadBool(current, "obsAutoConnect", true), ReadString(current, "twitchChannel", ""), _outboundChat.PreferBot);
+            UpdateBotStatus();
+            StatusText.Text = _outboundChat.PreferBot ? "Bot account selected for plugin messages" : "Broadcaster selected for plugin messages";
+        };
+        twitch.Children.Add(useBot);
+        var botActions = new StackPanel { Orientation = Orientation.Horizontal };
+        _twitchBotAction = Button("Connect bot account");
+        _twitchBotAction.Click += async (_, _) => await ConnectTwitchBotAsync();
+        var testBot = Button("Send test message");
+        testBot.Click += async (_, _) =>
+        {
+            testBot.IsEnabled = false;
+            try
+            {
+                await _outboundChat.SendChatMessageAsync("Forge Tools connection test.");
+                StatusText.Text = $"Test message sent as {_outboundChat.ActiveLogin}";
+            }
+            catch (Exception ex) { await ShowNoticeAsync("Test message failed", ex.Message); }
+            finally { testBot.IsEnabled = true; }
+        };
+        _twitchBotStatus = Status("Checking bot account…");
+        botActions.Children.Add(_twitchBotAction); botActions.Children.Add(testBot); botActions.Children.Add(_twitchBotStatus); twitch.Children.Add(botActions);
+        panel.Children.Add(ConnectionCard("Twitch", "Use the broadcaster account for channel control and optionally send plugin messages through a separate bot account.", twitch));
         panel.Children.Add(Heading("Connection permissions", 18, new(0, 22, 0, 4)));
         panel.Children.Add(Secondary("Plugins will declare scopes such as obs.scenes.read or twitch.chat.write. Forge will ask before exposing a shared connection."));
         AddTab("Connections", panel);
         _ = RestoreTwitchAsync();
+        _ = RestoreTwitchBotAsync();
         if (obsAuto.IsChecked == true && !string.IsNullOrEmpty(obsPassword.Text)) _ = ToggleObsAsync(false);
     }
 
@@ -165,6 +202,70 @@ public sealed partial class MainWindow : Window
         {
             if (_twitchStatus is not null) { _twitchStatus.Text = $"Connection check failed: {ex.Message}"; _twitchStatus.Foreground = Brushes.OrangeRed; }
         }
+    }
+
+    private async Task RestoreTwitchBotAsync()
+    {
+        try
+        {
+            await _twitchBot.RestoreAsync();
+            UpdateBotStatus();
+        }
+        catch (Exception ex)
+        {
+            if (_twitchBotStatus is not null) { _twitchBotStatus.Text = $"Bot check failed: {ex.Message}"; _twitchBotStatus.Foreground = Brushes.OrangeRed; }
+        }
+    }
+
+    private async Task ConnectTwitchBotAsync()
+    {
+        if (_twitchBotAction?.Tag is TwitchIdentity)
+        {
+            await _twitchBot.SignOutAsync();
+            UpdateBotStatus();
+            StatusText.Text = "Signed out of the Twitch bot account";
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        Window? dialog = null;
+        try
+        {
+            _twitchBotAction!.IsEnabled = false;
+            _twitchBotStatus!.Text = "Requesting bot activation code…";
+            var authorization = await _twitchBot.BeginAsync(cancellation.Token);
+            var code = new TextBlock { Text = authorization.UserCode, FontSize = 32, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Brush.Parse("#F06432"), Margin = new(0, 10, 0, 10) };
+            var progress = new TextBlock { Text = "Waiting for bot authorization…", Foreground = Brushes.LightGray, HorizontalAlignment = HorizontalAlignment.Center };
+            var open = Button("Open Twitch activation page"); open.HorizontalAlignment = HorizontalAlignment.Center; open.Click += async (_, _) => await Launcher.LaunchUriAsync(authorization.VerificationUri);
+            var cancel = Button("Cancel"); cancel.HorizontalAlignment = HorizontalAlignment.Center;
+            dialog = new Window { Title = "Connect Twitch bot", Width = 500, SizeToContent = SizeToContent.Height, CanResize = false, Content = new StackPanel { Margin = new(24), Children = { Heading("Connect a bot account", 24), Secondary("Sign in to the separate Twitch account you want Forge plugins to speak through. Forge requests only permission to send chat messages and never sees the account password."), code, open, progress, cancel } } };
+            cancel.Click += (_, _) => { cancellation.Cancel(); dialog.Close(); };
+            dialog.Closed += (_, _) => cancellation.Cancel();
+            _ = Launcher.LaunchUriAsync(authorization.VerificationUri);
+            var completion = _twitchBot.CompleteAsync(authorization, cancellation.Token);
+            var showing = dialog.ShowDialog(this);
+            var identity = await completion;
+            cancellation.CancelAfter(Timeout.InfiniteTimeSpan);
+            dialog.Close();
+            await showing;
+            UpdateBotStatus();
+            StatusText.Text = $"Connected Twitch bot account {identity.Login}";
+        }
+        catch (OperationCanceledException) { UpdateBotStatus(); }
+        catch (Exception ex) { if (dialog?.IsVisible == true) dialog.Close(); UpdateBotStatus(); await ShowNoticeAsync("Twitch bot connection failed", ex.Message); }
+        finally { if (_twitchBotAction is not null) _twitchBotAction.IsEnabled = true; }
+    }
+
+    private void UpdateBotStatus()
+    {
+        if (_twitchBotStatus is null || _twitchBotAction is null) return;
+        var identity = _twitchBot.Identity;
+        _twitchBotAction.Tag = identity;
+        _twitchBotAction.Content = identity is null ? "Connect bot account" : "Disconnect bot";
+        _twitchBotStatus.Text = identity is null
+            ? (_outboundChat.PreferBot ? "Not connected; broadcaster will be used" : "Not connected")
+            : (_outboundChat.PreferBot ? $"Sending as {identity.Login}" : $"Connected as {identity.Login}; broadcaster selected");
+        _twitchBotStatus.Foreground = identity is null ? Brushes.Goldenrod : Brushes.LightGreen;
     }
 
     private async Task ConnectTwitchAsync()
@@ -219,6 +320,7 @@ public sealed partial class MainWindow : Window
             _twitchStatus.Text = identity is null ? "Signed out" : $"Connected as {identity.Login}";
             _twitchStatus.Foreground = identity is null ? Brushes.Goldenrod : Brushes.LightGreen;
         }
+        UpdateBotStatus();
         try { await _events.PublishAsync(new TwitchConnectionChanged(identity is not null, identity?.Login)); }
         catch (Exception ex) { await _logger.WriteAsync("WARN", "forge.core.twitch", "A plugin failed while handling the Twitch connection change.", ex); }
     }
@@ -236,8 +338,8 @@ public sealed partial class MainWindow : Window
         else await _twitchChat.StopAsync();
     }
 
-    private void SaveConnections(string host, string port, bool autoConnect, string channel) =>
-        _plugins.SaveSettings("forge.core.connections", new Dictionary<string, object?> { ["obsHost"] = host, ["obsPort"] = port, ["obsAutoConnect"] = autoConnect, ["twitchChannel"] = channel });
+    private void SaveConnections(string host, string port, bool autoConnect, string channel, bool useBot) =>
+        _plugins.SaveSettings("forge.core.connections", new Dictionary<string, object?> { ["obsHost"] = host, ["obsPort"] = port, ["obsAutoConnect"] = autoConnect, ["twitchChannel"] = channel, ["twitchUseBot"] = useBot });
 
     private void AddCatalogTab()
     {
@@ -311,7 +413,7 @@ public sealed partial class MainWindow : Window
 
     private async Task InstallCoreUpdateAsync(CoreRelease release)
     {
-        var notes = string.IsNullOrWhiteSpace(release.ReleaseNotes) ? "No release notes were provided." : release.ReleaseNotes;
+        var notes = CoreUpdateService.GetReleaseSynopsis(release.ReleaseNotes);
         if (!await ConfirmAsync("Core update available", $"Forge Tools {release.Version} is available.\n\n{notes}\n\nDownload, verify, install, and restart now? Your portable data will be preserved and the current application files will be kept for rollback.", "Update & Restart")) return;
         try { StatusText.Text = $"Downloading and verifying Forge Tools {release.Version}…"; var package = await _updates.DownloadAndStageAsync(release); StatusText.Text = "Update verified. Restarting Forge Tools…"; _updates.ApplyWithUpdater(package); Close(); }
         catch (Exception ex) { await ShowNoticeAsync("Update failed", ex.Message); }
@@ -420,7 +522,7 @@ public sealed partial class MainWindow : Window
         {
             if (profileSelect.SelectedItem is not ComboBoxItem { Tag: string id } || id == _plugins.Profiles.ActiveProfileId) return;
             await _runtime.DisposeAsync(); _plugins.Profiles.Activate(id);
-            _permissions = new(_plugins.SettingsDirectory); _automation = new(_plugins.SettingsDirectory, _logger); _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
+            _permissions = new(_plugins.SettingsDirectory); _automation = new(_plugins.SettingsDirectory, _logger); _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch, _outboundChat)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
             await RefreshAsync(); StatusText.Text = "Profile activated";
         };
         var create = Button("Create profile");
@@ -445,7 +547,7 @@ public sealed partial class MainWindow : Window
                 checkCore.Content = "Checking…";
                 var release = await _updates.CheckAsync(repository);
                 if (release is null) { await ShowNoticeAsync("Core updates", $"Forge Tools {CoreUpdateService.CurrentVersion.ToString(3)} is up to date."); return; }
-                var notes = string.IsNullOrWhiteSpace(release.ReleaseNotes) ? "No release notes were provided." : release.ReleaseNotes;
+                var notes = CoreUpdateService.GetReleaseSynopsis(release.ReleaseNotes);
                 if (!await ConfirmAsync("Core update available", $"Forge Tools {release.Version} is available.\n\n{notes}\n\nDownload, verify, install, and restart now? Your portable data will be preserved and the current application files will be kept for rollback.", "Update & Restart")) return;
                 checkCore.Content = "Downloading…";
                 StatusText.Text = $"Downloading and verifying Forge Tools {release.Version}…";
