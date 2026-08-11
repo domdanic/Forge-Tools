@@ -173,11 +173,24 @@ public sealed class ChatGamesPlugin : IForgePlugin
         {
             await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
             if (!_context!.Settings.Get("economyEnabled", true)) continue;
+            var interval = TimeSpan.FromMinutes(Int("earnMinutes", 10, 1, 1440));
+            if (DateTimeOffset.UtcNow - _state.LastEarnedAt < interval) continue;
+            IReadOnlyList<TwitchChatter> chatters = [];
+            if (_context.Settings.Get("includeConnectedChatters", true) && _context.Connections.Twitch.IsConnected)
+            {
+                try { chatters = await _context.Connections.Twitch.GetChattersAsync(cancellationToken); }
+                catch (Exception ex) { WriteStatus("Could not refresh connected chatters; recently active chat users will still earn points. " + ex.GetBaseException().Message); }
+            }
             await _gate.WaitAsync(cancellationToken);
             try
             {
-                var interval = TimeSpan.FromMinutes(Int("earnMinutes", 10, 1, 1440));
                 if (DateTimeOffset.UtcNow - _state.LastEarnedAt < interval) continue;
+                var excluded = _context.Settings.Get("excludedPointUsers", "").Split(['\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var chatter in chatters.Where(chatter => !string.IsNullOrWhiteSpace(chatter.UserId) && !excluded.Contains(chatter.UserLogin)))
+                {
+                    var player = GetPlayer(chatter.UserId, chatter.UserLogin, chatter.UserName);
+                    player.LastSeen = DateTimeOffset.UtcNow;
+                }
                 var active = TimeSpan.FromMinutes(Int("activeMinutes", 20, 1, 1440));
                 var amount = Int("earnAmount", 5, 0, 1_000_000);
                 foreach (var player in _state.Players.Values.Where(player => DateTimeOffset.UtcNow - player.LastSeen <= active)) player.Balance += amount;

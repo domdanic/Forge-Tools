@@ -12,7 +12,7 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages channel:manage:redemptions";
+    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages channel:manage:redemptions moderator:read:chatters";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
     private TwitchTokens? _tokens;
@@ -127,6 +127,23 @@ public sealed class TwitchAuthService
         using var manageableDocument = JsonDocument.Parse(await manageableResponse.Content.ReadAsStringAsync(cancellationToken));
         var manageable = manageableDocument.RootElement.GetProperty("data").EnumerateArray().Select(x => x.GetProperty("id").GetString() ?? "").ToHashSet(StringComparer.Ordinal);
         return document.RootElement.GetProperty("data").EnumerateArray().Select(item => ParseReward(item, manageable.Contains(item.GetProperty("id").GetString() ?? ""))).ToList();
+    }
+
+    public async Task<IReadOnlyList<TwitchChatter>> GetChattersAsync(CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        var result = new List<TwitchChatter>();
+        string? cursor = null;
+        do
+        {
+            var relative = $"chat/chatters?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&moderator_id={Uri.EscapeDataString(Identity.UserId)}&first=1000";
+            if (!string.IsNullOrWhiteSpace(cursor)) relative += "&after=" + Uri.EscapeDataString(cursor);
+            using var response = await SendHelixAsync(HttpMethod.Get, relative, null, cancellationToken);
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            result.AddRange(document.RootElement.GetProperty("data").EnumerateArray().Select(item => new TwitchChatter(item.GetProperty("user_id").GetString() ?? "", item.GetProperty("user_login").GetString() ?? "", item.GetProperty("user_name").GetString() ?? "")));
+            cursor = document.RootElement.TryGetProperty("pagination", out var pagination) && pagination.TryGetProperty("cursor", out var next) ? next.GetString() : null;
+        } while (!string.IsNullOrWhiteSpace(cursor));
+        return result;
     }
 
     public async Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default)

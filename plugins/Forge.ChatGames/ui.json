@@ -6,7 +6,9 @@
       { "type": "text", "key": "startingBalance", "label": "Starting balance", "default": "100" },
       { "type": "text", "key": "earnAmount", "label": "Points earned each interval", "default": "5" },
       { "type": "text", "key": "earnMinutes", "label": "Earning interval (minutes)", "default": "10" },
-      { "type": "text", "key": "activeMinutes", "label": "Viewer must have chatted within (minutes)", "default": "20" },
+      { "type": "toggle", "key": "includeConnectedChatters", "label": "Include connected chat lurkers", "description": "Uses Twitch's delayed chatters list. Viewers must be logged in and connected to chat; anonymous video viewers cannot be identified.", "default": true },
+      { "type": "text", "key": "activeMinutes", "label": "Chat activity window when chatter lookup is unavailable (minutes)", "default": "20" },
+      { "type": "multiline", "key": "excludedPointUsers", "label": "Accounts that should not earn passive points (one per line)", "default": "" },
       { "type": "text", "key": "pointsCommand", "label": "Balance command", "default": "!points" },
       { "type": "text", "key": "leaderboardCommand", "label": "Leaderboard command", "default": "!top" }
     ]},

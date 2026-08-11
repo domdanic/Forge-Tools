@@ -76,6 +76,7 @@ public interface ITwitchConnection
     Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default);
     Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default);
     Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TwitchChatter>> GetChattersAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default);
     Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default);
     Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default);
@@ -86,6 +87,7 @@ public interface ITwitchConnection
 public sealed record TwitchCategory(string Id, string Name);
 public sealed record TwitchChannel(string BroadcasterId, string CategoryId, string CategoryName, string Title);
 public sealed record TwitchAdSchedule(DateTimeOffset? NextAdAt, int DurationSeconds, int SnoozeCount);
+public sealed record TwitchChatter(string UserId, string UserLogin, string UserName);
 public sealed record TwitchCustomReward(string Id, string Title, string Prompt, int Cost, bool IsEnabled, bool IsPaused, bool IsUserInputRequired, bool SkipRequestQueue, bool IsManageable);
 public sealed record TwitchCustomRewardRequest(string Title, string Prompt, int Cost, bool IsEnabled = true, bool IsUserInputRequired = false, bool SkipRequestQueue = true);
 

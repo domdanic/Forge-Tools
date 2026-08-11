@@ -10,17 +10,19 @@ public sealed class TwitchRedeemsPlugin : IForgePlugin
     private IDisposable? _changes;
     private IDisposable? _fulfillAction;
     private IDisposable? _cancelAction;
+    private IDisposable? _connectionChanges;
 
     public Task InitializeAsync(IForgeContext context, CancellationToken cancellationToken) { _context = context; return Task.CompletedTask; }
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _redemptions = _context!.Events.Subscribe<TwitchRewardRedeemed>(OnRedeemedAsync);
         _changes = _context.Events.Subscribe<TwitchRewardsChanged>(_ => RefreshAsync(CancellationToken.None));
+        _connectionChanges = _context.Events.Subscribe<TwitchConnectionChanged>(change => change.Connected ? RefreshAsync(CancellationToken.None) : ClearTriggersAsync());
         _fulfillAction = _context.Automation.RegisterAction(new("tools.forge.twitch-redeems.fulfill", "Fulfill Twitch redemption", "Marks a Forge-created queued redemption fulfilled.", []), (invocation, token) => UpdateStatusAsync(invocation, "FULFILLED", token));
         _cancelAction = _context.Automation.RegisterAction(new("tools.forge.twitch-redeems.cancel", "Cancel and refund Twitch redemption", "Cancels a Forge-created queued redemption and returns its points.", []), (invocation, token) => UpdateStatusAsync(invocation, "CANCELED", token));
         await RefreshAsync(cancellationToken);
     }
-    public Task StopAsync(CancellationToken cancellationToken) { _redemptions?.Dispose(); _changes?.Dispose(); _fulfillAction?.Dispose(); _cancelAction?.Dispose(); _redemptions = null; _changes = null; _fulfillAction = null; _cancelAction = null; ClearRegistrations(); return Task.CompletedTask; }
+    public Task StopAsync(CancellationToken cancellationToken) { _redemptions?.Dispose(); _changes?.Dispose(); _connectionChanges?.Dispose(); _fulfillAction?.Dispose(); _cancelAction?.Dispose(); _redemptions = null; _changes = null; _connectionChanges = null; _fulfillAction = null; _cancelAction = null; ClearRegistrations(); return Task.CompletedTask; }
     public ValueTask DisposeAsync() { ClearRegistrations(); return ValueTask.CompletedTask; }
 
     private async Task RefreshAsync(CancellationToken cancellationToken)
@@ -52,5 +54,6 @@ public sealed class TwitchRedeemsPlugin : IForgePlugin
     }
 
     private void ClearRegistrations() { foreach (var item in _registrations) item.Dispose(); _registrations.Clear(); }
+    private Task ClearTriggersAsync() { ClearRegistrations(); return Task.CompletedTask; }
     private static string TriggerId(string rewardId) => $"tools.forge.twitch-redeems.reward.{rewardId}";
 }

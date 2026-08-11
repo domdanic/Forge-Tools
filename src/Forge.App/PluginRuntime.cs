@@ -127,6 +127,7 @@ public sealed class TwitchConnectionView(TwitchAuthService auth) : ITwitchConnec
     public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => auth.SendChatMessageAsync(message, cancellationToken);
     public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) => auth.DeleteChatMessageAsync(messageId, cancellationToken);
     public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) => auth.GetAdScheduleAsync(cancellationToken);
+    public Task<IReadOnlyList<TwitchChatter>> GetChattersAsync(CancellationToken cancellationToken = default) => auth.GetChattersAsync(cancellationToken);
     public Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default) => auth.GetCustomRewardsAsync(cancellationToken);
     public Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) => auth.CreateCustomRewardAsync(reward, cancellationToken);
     public Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) => auth.UpdateCustomRewardAsync(rewardId, reward, cancellationToken);
@@ -173,6 +174,7 @@ internal sealed class PermissionedConnections(string pluginId, IReadOnlySet<stri
         public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) { Require("twitch.chat.write"); return inner.SendChatMessageAsync(message, cancellationToken); }
         public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) { Require("twitch.chat.moderate"); return inner.DeleteChatMessageAsync(messageId, cancellationToken); }
         public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) { Require("twitch.ads.read"); return inner.GetAdScheduleAsync(cancellationToken); }
+        public Task<IReadOnlyList<TwitchChatter>> GetChattersAsync(CancellationToken cancellationToken = default) { Require("twitch.chatters.read"); return inner.GetChattersAsync(cancellationToken); }
         public Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default) { RequireRedemptions(); return inner.GetCustomRewardsAsync(cancellationToken); }
         public Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.CreateCustomRewardAsync(reward, cancellationToken); }
         public Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.UpdateCustomRewardAsync(rewardId, reward, cancellationToken); }

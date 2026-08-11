@@ -1,13 +1,13 @@
 {
   "id": "tools.forge.chat-games",
   "name": "Chat Games",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A configurable virtual-points economy with slots, roulette, blackjack, and cooperative boss battles.",
   "author": "Forge Tools",
   "forgeApi": "2",
-  "minimumCoreVersion": "0.4.0",
+  "minimumCoreVersion": "0.6.1",
   "entryAssembly": "Forge.ChatGames.dll",
   "entryType": "Forge.ChatGames.ChatGamesPlugin",
   "ui": "ui.json",
-  "permissions": ["twitch.chat.read", "twitch.chat.write", "storage.local"]
+  "permissions": ["twitch.chat.read", "twitch.chat.write", "twitch.chatters.read", "storage.local"]
 }
