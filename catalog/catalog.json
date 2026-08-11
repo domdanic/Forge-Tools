@@ -123,13 +123,17 @@
       "version": "0.1.0",
       "description": "Plays audio files in response to triggers from other Forge plugins.",
       "author": "Forge Tools",
-      "packageUrl": "",
-      "sha256": "",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/audio-player-v0.1.0/Forge.AudioPlayer-0.1.0.zip",
+      "sha256": "BC5AD50A5D788E2414D3531BD3F5D80EED432234F6AD0F4C663487940C04AAE5",
       "forgeApi": "2",
       "minimumCoreVersion": "0.6.0",
       "verified": false,
-      "available": false,
-      "permissions": ["filesystem.audio.read", "system.audio.play", "storage.local"]
+      "available": true,
+      "permissions": [
+        "filesystem.audio.read",
+        "system.audio.play",
+        "storage.local"
+      ]
     },
     {
       "id": "tools.forge.twitch-redeems",
@@ -143,7 +147,11 @@
       "minimumCoreVersion": "0.6.0",
       "verified": false,
       "available": false,
-      "permissions": ["twitch.redemptions.read", "twitch.redemptions.manage", "storage.local"]
+      "permissions": [
+        "twitch.redemptions.read",
+        "twitch.redemptions.manage",
+        "storage.local"
+      ]
     },
     {
       "id": "tools.forge.tts",
@@ -157,7 +165,11 @@
       "minimumCoreVersion": "0.6.0",
       "verified": false,
       "available": false,
-      "permissions": ["system.audio.play", "network.tts", "storage.local"]
+      "permissions": [
+        "system.audio.play",
+        "network.tts",
+        "storage.local"
+      ]
     }
   ]
 }
