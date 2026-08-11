@@ -138,13 +138,13 @@
     {
       "id": "tools.forge.twitch-redeems",
       "name": "Twitch Redeems",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Creates and manages Twitch Channel Point rewards and turns redemptions into Forge automation triggers.",
       "author": "Forge Tools",
-      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/twitch-redeems-v0.1.0/Forge.TwitchRedeems-0.1.0.zip",
-      "sha256": "86A5E11A961FC297AFA10370A93589D9E0241B01EF5BF6DB809491D5AD2FD64A",
+      "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/twitch-redeems-v0.1.1/Forge.TwitchRedeems-0.1.1.zip",
+      "sha256": "B23628E3A352FB9BCACA2D0D3A1CEF812AE7895FB29BCD04C0F5804FEB5329A5",
       "forgeApi": "2",
-      "minimumCoreVersion": "0.6.0",
+      "minimumCoreVersion": "0.6.1",
       "verified": false,
       "available": true,
       "permissions": [
