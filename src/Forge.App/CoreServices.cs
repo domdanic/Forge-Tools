@@ -49,22 +49,25 @@ public sealed class ForgeLogger
 public sealed class CredentialStore
 {
     private readonly string _directory;
+    private readonly ConcurrentDictionary<string, string> _session = new(StringComparer.Ordinal);
     public CredentialStore(string directory) => _directory = directory;
     public bool CanPersist => OperatingSystem.IsWindows();
     public void Save(string key, string secret)
     {
+        _session[key] = secret;
         if (!OperatingSystem.IsWindows()) return;
         SaveWindows(Path.Combine(_directory, SafeName(key)), secret);
     }
     public string? Load(string key)
     {
+        if (_session.TryGetValue(key, out var sessionSecret)) return sessionSecret;
         if (!OperatingSystem.IsWindows()) return null;
         var path = Path.Combine(_directory, SafeName(key));
         if (!File.Exists(path)) return null;
         try { return LoadWindows(path); }
         catch { File.Delete(path); return null; }
     }
-    public void Delete(string key) { var path = Path.Combine(_directory, SafeName(key)); if (File.Exists(path)) File.Delete(path); }
+    public void Delete(string key) { _session.TryRemove(key, out _); var path = Path.Combine(_directory, SafeName(key)); if (File.Exists(path)) File.Delete(path); }
     private static string SafeName(string key) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key))) + ".credential";
     [SupportedOSPlatform("windows")]
     private static void SaveWindows(string path, string secret) => File.WriteAllBytes(path, ProtectedData.Protect(System.Text.Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser));

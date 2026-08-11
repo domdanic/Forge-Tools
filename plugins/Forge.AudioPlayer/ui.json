@@ -1,0 +1,16 @@
+{
+  "sections": [
+    {
+      "title": "Audio files",
+      "description": "Forge saves a reference to each file but does not copy it. Moving, renaming, or deleting the file will break that action. Store your sounds somewhere permanent.",
+      "controls": [
+        { "type": "text", "key": "linuxPlayer", "label": "Linux player command (optional)", "description": "Leave blank to let Forge find ffplay, paplay, or aplay.", "default": "" }
+      ]
+    },
+    {
+      "title": "Audio automations",
+      "description": "Attach Play audio file to triggers registered by Twitch Redeems or any other installed trigger plugin.",
+      "controls": [{ "type": "automation-bindings", "key": "automations", "label": "Automations", "optionsSource": "action" }]
+    }
+  ]
+}

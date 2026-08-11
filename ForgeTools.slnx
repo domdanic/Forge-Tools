@@ -6,6 +6,9 @@
     <Project Path="plugins/Forge.TimedAnnouncements/Forge.TimedAnnouncements.csproj" />
     <Project Path="plugins/Forge.StreamRecap/Forge.StreamRecap.csproj" />
     <Project Path="plugins/Forge.LinkProtection/Forge.LinkProtection.csproj" />
+    <Project Path="plugins/Forge.TwitchRedeems/Forge.TwitchRedeems.csproj" />
+    <Project Path="plugins/Forge.AudioPlayer/Forge.AudioPlayer.csproj" />
+    <Project Path="plugins/Forge.Tts/Forge.Tts.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Forge.App/Forge.App.csproj" />

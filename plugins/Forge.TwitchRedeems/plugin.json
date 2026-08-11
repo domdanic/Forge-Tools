@@ -1,0 +1,13 @@
+{
+  "id": "tools.forge.twitch-redeems",
+  "name": "Twitch Redeems",
+  "version": "0.1.0",
+  "description": "Creates and manages Twitch Channel Point rewards and turns redemptions into Forge automation triggers.",
+  "author": "Forge Tools",
+  "forgeApi": "2",
+  "minimumCoreVersion": "0.6.0",
+  "entryAssembly": "Forge.TwitchRedeems.dll",
+  "entryType": "Forge.TwitchRedeems.TwitchRedeemsPlugin",
+  "ui": "ui.json",
+  "permissions": ["twitch.redemptions.read", "twitch.redemptions.manage", "storage.local"]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "tools.forge.audio-player",
+  "name": "Audio Player",
+  "version": "0.1.0",
+  "description": "Plays audio files in response to triggers from other Forge plugins.",
+  "author": "Forge Tools",
+  "forgeApi": "2",
+  "minimumCoreVersion": "0.6.0",
+  "entryAssembly": "Forge.AudioPlayer.dll",
+  "entryType": "Forge.AudioPlayer.AudioPlayerPlugin",
+  "ui": "ui.json",
+  "permissions": ["filesystem.audio.read", "system.audio.play", "storage.local"]
+}

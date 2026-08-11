@@ -17,6 +17,7 @@ public sealed class TwitchChatService : IAsyncDisposable
     private bool _includeChat;
     private bool _includeAds;
     private bool _includeRecapEvents;
+    private bool _includeRedemptions;
 
     public TwitchChatService(TwitchAuthService auth, IForgeEventBus events, ForgeLogger log)
     {
@@ -25,13 +26,14 @@ public sealed class TwitchChatService : IAsyncDisposable
         _log = log;
     }
 
-    public async Task StartAsync(bool includeChat = true, bool includeAds = false, bool includeRecapEvents = false, CancellationToken cancellationToken = default)
+    public async Task StartAsync(bool includeChat = true, bool includeAds = false, bool includeRecapEvents = false, bool includeRedemptions = false, CancellationToken cancellationToken = default)
     {
         await StopAsync();
         if (_auth.Identity is null) return;
         _includeChat = includeChat;
         _includeAds = includeAds;
         _includeRecapEvents = includeRecapEvents;
+        _includeRedemptions = includeRedemptions;
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _worker = RunAsync(_lifetime.Token);
     }
@@ -82,6 +84,7 @@ public sealed class TwitchChatService : IAsyncDisposable
                     if (_includeChat) await _auth.CreateChatSubscriptionAsync(sessionId, cancellationToken);
                     if (_includeAds) await _auth.CreateAdSubscriptionAsync(sessionId, cancellationToken);
                     if (_includeRecapEvents) await _auth.CreateRecapSubscriptionsAsync(sessionId, cancellationToken);
+                    if (_includeRedemptions) await _auth.CreateRedemptionSubscriptionAsync(sessionId, cancellationToken);
                     await _log.WriteAsync("INFO", "TwitchEventSub", "Twitch event subscriptions connected.");
                 }
             }
@@ -141,6 +144,10 @@ public sealed class TwitchChatService : IAsyncDisposable
                     return;
                 case "channel.raid":
                     await _events.PublishAsync(new TwitchRaided(Get(item, "from_broadcaster_user_id"), Get(item, "from_broadcaster_user_login"), Get(item, "from_broadcaster_user_name"), GetInt(item, "viewers"), at), cancellationToken);
+                    return;
+                case "channel.channel_points_custom_reward_redemption.add":
+                    var reward = item.GetProperty("reward");
+                    await _events.PublishAsync(new TwitchRewardRedeemed(Get(item, "id"), Get(reward, "id"), Get(reward, "title"), Get(item, "user_id"), Get(item, "user_login"), Get(item, "user_name"), Get(item, "user_input"), Get(item, "status"), GetTimestamp(item, "redeemed_at") ?? DateTimeOffset.UtcNow), cancellationToken);
                     return;
             }
         }

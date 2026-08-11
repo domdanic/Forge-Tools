@@ -12,7 +12,7 @@ public sealed record TwitchIdentity(string UserId, string Login, string[] Scopes
 public sealed class TwitchAuthService
 {
     public const string ClientId = "bp6dq7ewhr9rqj3g2x64mcz0ae7tat";
-    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages";
+    private const string RequestedScopes = "user:read:chat user:write:chat channel:manage:broadcast channel:read:ads bits:read channel:read:subscriptions moderator:read:followers moderator:manage:chat_messages channel:manage:redemptions";
     private readonly HttpClient _http = new();
     private readonly string _credentialPath;
     private TwitchTokens? _tokens;
@@ -118,6 +118,47 @@ public sealed class TwitchAuthService
         using var response = await SendHelixAsync(HttpMethod.Patch, $"channels?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", new { game_id = categoryId }, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        using var response = await SendHelixAsync(HttpMethod.Get, $"channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", null, cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        using var manageableResponse = await SendHelixAsync(HttpMethod.Get, $"channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&only_manageable_rewards=true", null, cancellationToken);
+        using var manageableDocument = JsonDocument.Parse(await manageableResponse.Content.ReadAsStringAsync(cancellationToken));
+        var manageable = manageableDocument.RootElement.GetProperty("data").EnumerateArray().Select(x => x.GetProperty("id").GetString() ?? "").ToHashSet(StringComparer.Ordinal);
+        return document.RootElement.GetProperty("data").EnumerateArray().Select(item => ParseReward(item, manageable.Contains(item.GetProperty("id").GetString() ?? ""))).ToList();
+    }
+
+    public async Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        using var response = await SendHelixAsync(HttpMethod.Post, $"channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}", RewardBody(reward), cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return ParseReward(document.RootElement.GetProperty("data").EnumerateArray().First(), true);
+    }
+
+    public async Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        using var response = await SendHelixAsync(HttpMethod.Patch, $"channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&id={Uri.EscapeDataString(rewardId)}", RewardBody(reward), cancellationToken);
+    }
+
+    public async Task DeleteCustomRewardAsync(string rewardId, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        using var response = await SendHelixAsync(HttpMethod.Delete, $"channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&id={Uri.EscapeDataString(rewardId)}", null, cancellationToken);
+    }
+
+    public async Task UpdateRedemptionStatusAsync(string rewardId, string redemptionId, string status, CancellationToken cancellationToken = default)
+    {
+        if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
+        if (status is not ("FULFILLED" or "CANCELED")) throw new ArgumentOutOfRangeException(nameof(status));
+        using var response = await SendHelixAsync(HttpMethod.Patch, $"channel_points/custom_rewards/redemptions?broadcaster_id={Uri.EscapeDataString(Identity.UserId)}&reward_id={Uri.EscapeDataString(rewardId)}&id={Uri.EscapeDataString(redemptionId)}", new { status }, cancellationToken);
+    }
+
+    private static object RewardBody(TwitchCustomRewardRequest reward) => new { title = reward.Title, prompt = reward.Prompt, cost = reward.Cost, is_enabled = reward.IsEnabled, is_user_input_required = reward.IsUserInputRequired, should_redemptions_skip_request_queue = reward.SkipRequestQueue };
+    private static TwitchCustomReward ParseReward(JsonElement item, bool manageable) => new(item.GetProperty("id").GetString() ?? "", item.GetProperty("title").GetString() ?? "", item.GetProperty("prompt").GetString() ?? "", item.GetProperty("cost").GetInt32(), item.GetProperty("is_enabled").GetBoolean(), item.GetProperty("is_paused").GetBoolean(), item.GetProperty("is_user_input_required").GetBoolean(), item.GetProperty("should_redemptions_skip_request_queue").GetBoolean(), manageable);
+
     public async Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default)
     {
         if (Identity is null) throw new InvalidOperationException("Twitch is not connected.");
@@ -194,6 +235,9 @@ public sealed class TwitchAuthService
             transport = new { method = "websocket", session_id = sessionId }
         }, cancellationToken);
     }
+
+    public Task CreateRedemptionSubscriptionAsync(string sessionId, CancellationToken cancellationToken = default) =>
+        CreateSubscriptionAsync("channel.channel_points_custom_reward_redemption.add", "1", new { broadcaster_user_id = Identity?.UserId ?? throw new InvalidOperationException("Twitch is not connected.") }, sessionId, "channel:manage:redemptions", cancellationToken);
 
     public async Task CreateRecapSubscriptionsAsync(string sessionId, CancellationToken cancellationToken = default)
     {

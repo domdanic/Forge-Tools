@@ -116,6 +116,48 @@
         "twitch.chat.moderate",
         "storage.local"
       ]
+    },
+    {
+      "id": "tools.forge.audio-player",
+      "name": "Audio Player",
+      "version": "0.1.0",
+      "description": "Plays audio files in response to triggers from other Forge plugins.",
+      "author": "Forge Tools",
+      "packageUrl": "",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.6.0",
+      "verified": false,
+      "available": false,
+      "permissions": ["filesystem.audio.read", "system.audio.play", "storage.local"]
+    },
+    {
+      "id": "tools.forge.twitch-redeems",
+      "name": "Twitch Redeems",
+      "version": "0.1.0",
+      "description": "Creates and manages Twitch Channel Point rewards and turns redemptions into Forge automation triggers.",
+      "author": "Forge Tools",
+      "packageUrl": "",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.6.0",
+      "verified": false,
+      "available": false,
+      "permissions": ["twitch.redemptions.read", "twitch.redemptions.manage", "storage.local"]
+    },
+    {
+      "id": "tools.forge.tts",
+      "name": "Text to Speech",
+      "version": "0.1.0",
+      "description": "Speaks trigger text using free Windows voices or an optional ElevenLabs account.",
+      "author": "Forge Tools",
+      "packageUrl": "",
+      "sha256": "",
+      "forgeApi": "2",
+      "minimumCoreVersion": "0.6.0",
+      "verified": false,
+      "available": false,
+      "permissions": ["system.audio.play", "network.tts", "storage.local"]
     }
   ]
 }
