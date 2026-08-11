@@ -1,0 +1,13 @@
+{
+  "id": "tools.forge.tts",
+  "name": "Text to Speech",
+  "version": "0.1.0",
+  "description": "Speaks trigger text using free Windows voices or an optional ElevenLabs account.",
+  "author": "Forge Tools",
+  "forgeApi": "2",
+  "minimumCoreVersion": "0.6.0",
+  "entryAssembly": "Forge.Tts.dll",
+  "entryType": "Forge.Tts.TtsPlugin",
+  "ui": "ui.json",
+  "permissions": ["system.audio.play", "network.tts", "storage.local"]
+}

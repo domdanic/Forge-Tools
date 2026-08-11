@@ -24,6 +24,9 @@ public sealed partial class MainWindow : Window
     private PluginRuntimeManager _runtime;
     private readonly CoreUpdateService _updates;
     private readonly DiagnosticsService _diagnostics;
+    private AutomationService _automation;
+    private CoreRelease? _availableCoreRelease;
+    private IReadOnlyList<CatalogPlugin> _availablePluginUpdates = [];
     private readonly Dictionary<string, Dictionary<string, Control>> _fields = [];
     private List<TabItem> _tabs = [];
     private StackPanel? _catalogList;
@@ -39,7 +42,8 @@ public sealed partial class MainWindow : Window
         _obs = new(_events, _logger);
         _twitchChat = new(_twitch, _events, _logger);
         _permissions = new(_plugins.SettingsDirectory);
-        _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory);
+        _automation = new(_plugins.SettingsDirectory, _logger);
+        _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
         _updates = new(_plugins.CacheDirectory);
         _diagnostics = new(_plugins);
         _plugins.Profiles.Changed += async (_, changed) => await _events.PublishAsync(changed);
@@ -68,6 +72,7 @@ public sealed partial class MainWindow : Window
         await _runtime.StartAsync(installed.Where(x => _plugins.IsEnabled(x.Manifest.Id)));
         await _events.PublishAsync(new ForgeStarted(DateTimeOffset.UtcNow));
         await CheckCatalogAsync(installed);
+        await CheckCoreBannerAsync();
     }
 
     private void AddHomeTab(IReadOnlyList<InstalledPlugin> installed)
@@ -222,7 +227,8 @@ public sealed partial class MainWindow : Window
         var includeChat = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.chat.read", StringComparer.OrdinalIgnoreCase));
         var includeAds = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.ads.read", StringComparer.OrdinalIgnoreCase));
         var includeRecapEvents = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.events.read", StringComparer.OrdinalIgnoreCase));
-        if (_twitch.Identity is not null && (includeChat || includeAds || includeRecapEvents)) await _twitchChat.StartAsync(includeChat, includeAds, includeRecapEvents);
+        var includeRedemptions = active.Any(plugin => plugin.Manifest.Permissions.Contains("twitch.redemptions.read", StringComparer.OrdinalIgnoreCase) || plugin.Manifest.Permissions.Contains("twitch.redemptions.manage", StringComparer.OrdinalIgnoreCase));
+        if (_twitch.Identity is not null && (includeChat || includeAds || includeRecapEvents || includeRedemptions)) await _twitchChat.StartAsync(includeChat, includeAds, includeRecapEvents, includeRedemptions);
         else await _twitchChat.StopAsync();
     }
 
@@ -248,18 +254,63 @@ public sealed partial class MainWindow : Window
         {
             var catalog = await _plugins.LoadCatalogAsync(Path.Combine(AppContext.BaseDirectory, "catalog.json"));
             if (catalog.Plugins.Count == 0) { _catalogList.Children.Add(Secondary("No plugins are currently available from this catalogue.")); return; }
+            var pluginUpdates = new List<CatalogPlugin>();
             foreach (var item in catalog.Plugins)
             {
                 var current = installed.FirstOrDefault(x => x.Manifest.Id == item.Id);
                 var compatible = PluginManager.IsCoreCompatible(item.MinimumCoreVersion);
-                var action = !compatible ? $"Requires Core {item.MinimumCoreVersion}" : !item.Available ? "Coming soon" : current is null ? "Install" : current.Manifest.Version == item.Version ? "Installed" : "Update";
+                var hasUpdate = current is not null && Version.TryParse(current.Manifest.Version, out var installedVersion) && Version.TryParse(item.Version, out var catalogVersion) && catalogVersion > installedVersion;
+                if (hasUpdate && item.Available) pluginUpdates.Add(item);
+                var action = !compatible ? $"Requires Core {item.MinimumCoreVersion}" : !item.Available ? "Coming soon" : current is null ? "Install" : hasUpdate ? "Update" : "Installed";
                 var row = new Grid { ColumnDefinitions = new("*,Auto"), Background = PanelBrush, Margin = new(0, 0, 0, 10) };
                 row.Children.Add(new TextBlock { Text = $"{item.Name}  {item.Version}\n{item.Description}", Margin = new(14), TextWrapping = TextWrapping.Wrap });
                 var button = Button(action); button.IsEnabled = compatible && action is not "Installed" and not "Coming soon"; button.Tag = item; button.SetValue(Grid.ColumnProperty, 1); button.Click += Install_Click; row.Children.Add(button);
                 _catalogList.Children.Add(row);
             }
+            _availablePluginUpdates = pluginUpdates;
+            ShowUpdateBanner();
         }
         catch (Exception ex) { _catalogList.Children.Add(new TextBlock { Text = $"Catalog check failed: {ex.Message}", Foreground = Brushes.OrangeRed, TextWrapping = TextWrapping.Wrap }); }
+    }
+
+    private async Task CheckCoreBannerAsync()
+    {
+        try
+        {
+            using var source = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "update-source.json")));
+            _availableCoreRelease = await _updates.CheckAsync(source.RootElement.GetProperty("repository").GetString() ?? "");
+            ShowUpdateBanner();
+        }
+        catch (Exception ex) { await _logger.WriteAsync("WARN", "forge.core.updates", "Background Core update check failed.", ex); }
+    }
+
+    private void ShowUpdateBanner()
+    {
+        var core = _availableCoreRelease;
+        var pluginUpdates = _availablePluginUpdates;
+        if (core is null && pluginUpdates.Count == 0) { UpdateBanner.IsVisible = false; return; }
+        var parts = new List<string>();
+        if (core is not null) parts.Add($"Forge Tools {core.Version} is available");
+        if (pluginUpdates.Count > 0) parts.Add(pluginUpdates.Count == 1 ? $"{pluginUpdates[0].Name} has an update" : $"{pluginUpdates.Count} plugin updates are available");
+        UpdateBannerText.Text = string.Join(" · ", parts);
+        UpdateBannerAction.Content = core is not null ? "Update Core" : "View updates";
+        UpdateBannerAction.Click -= UpdateBannerAction_Click;
+        UpdateBannerAction.Click += UpdateBannerAction_Click;
+        UpdateBanner.IsVisible = true;
+    }
+
+    private async void UpdateBannerAction_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_availableCoreRelease is not null) await InstallCoreUpdateAsync(_availableCoreRelease);
+        else MainTabs.SelectedIndex = _tabs.FindIndex(x => Equals(x.Header, "Plugin Library"));
+    }
+
+    private async Task InstallCoreUpdateAsync(CoreRelease release)
+    {
+        var notes = string.IsNullOrWhiteSpace(release.ReleaseNotes) ? "No release notes were provided." : release.ReleaseNotes;
+        if (!await ConfirmAsync("Core update available", $"Forge Tools {release.Version} is available.\n\n{notes}\n\nDownload, verify, install, and restart now? Your portable data will be preserved and the current application files will be kept for rollback.", "Update & Restart")) return;
+        try { StatusText.Text = $"Downloading and verifying Forge Tools {release.Version}…"; var package = await _updates.DownloadAndStageAsync(release); StatusText.Text = "Update verified. Restarting Forge Tools…"; _updates.ApplyWithUpdater(package); Close(); }
+        catch (Exception ex) { await ShowNoticeAsync("Update failed", ex.Message); }
     }
 
     private async void Install_Click(object? sender, RoutedEventArgs e)
@@ -365,7 +416,7 @@ public sealed partial class MainWindow : Window
         {
             if (profileSelect.SelectedItem is not ComboBoxItem { Tag: string id } || id == _plugins.Profiles.ActiveProfileId) return;
             await _runtime.DisposeAsync(); _plugins.Profiles.Activate(id);
-            _permissions = new(_plugins.SettingsDirectory); _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory);
+            _permissions = new(_plugins.SettingsDirectory); _automation = new(_plugins.SettingsDirectory, _logger); _runtime = new(_events, new ForgeConnections(_obs, new TwitchConnectionView(_twitch)), _permissions, _logger, _plugins.SettingsDirectory, _automation, _credentials);
             await RefreshAsync(); StatusText.Text = "Profile activated";
         };
         var create = Button("Create profile");
@@ -506,6 +557,9 @@ public sealed partial class MainWindow : Window
             }
             field = actions;
         }
+        else if (spec.Type.Equals("automation-bindings", StringComparison.OrdinalIgnoreCase)) field = new AutomationBindingEditor(_automation, pluginId, spec.OptionsSource, message => StatusText.Text = message);
+        else if (spec.Type.Equals("twitch-rewards", StringComparison.OrdinalIgnoreCase)) field = new TwitchRewardEditor(new TwitchConnectionView(_twitch), _events, message => StatusText.Text = message);
+        else if (spec.Type.Equals("credential", StringComparison.OrdinalIgnoreCase)) field = new PluginSecretBox(pluginId, spec.Key) { Text = _credentials.Load(pluginId + "." + spec.Key) ?? "", PasswordChar = '●', PlaceholderText = spec.Description };
         else if (spec.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase)) field = new CheckBox { Content = spec.Description ?? "Enabled", IsChecked = ReadBool(settings, spec.Key, spec.Default), Margin = new(0, 7, 0, 14) };
         else if (spec.Type.Equals("select", StringComparison.OrdinalIgnoreCase))
         {
@@ -523,11 +577,14 @@ public sealed partial class MainWindow : Window
 
     private void SavePlugin(string pluginId)
     {
-        var values = _fields[pluginId].ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, ObsSceneSourcePicker picker => picker.Selection, RecapCategoryOrderEditor editor => editor.Order, _ => null });
+        var values = _fields[pluginId].Where(pair => pair.Value is not AutomationBindingEditor and not PluginSecretBox).ToDictionary(pair => pair.Key, pair => pair.Value switch { TextBox text => (object?)text.Text, CheckBox check => check.IsChecked ?? false, ComboBox { SelectedItem: ComboBoxItem item } => item.Tag, ProcessCategoryMappingEditor editor => editor.Mappings, CaptureSwitchMappingEditor editor => editor.Mappings, TimedAnnouncementRuleEditor editor => editor.Rules, ObsSceneSourcePicker picker => picker.Selection, RecapCategoryOrderEditor editor => editor.Order, _ => null });
         _plugins.SaveSettings(pluginId, values);
+        foreach (var secret in _fields[pluginId].Values.OfType<PluginSecretBox>()) { if (string.IsNullOrEmpty(secret.Text)) _credentials.Delete(secret.PluginId + "." + secret.SecretKey); else _credentials.Save(secret.PluginId + "." + secret.SecretKey, secret.Text); }
         foreach (var preview in _fields[pluginId].Values.OfType<RecapPreviewControl>()) _ = preview.RefreshSoonAsync();
         StatusText.Text = "Settings saved";
     }
+
+    private sealed class PluginSecretBox(string pluginId, string secretKey) : TextBox { public string PluginId { get; } = pluginId; public string SecretKey { get; } = secretKey; }
 
     private async Task ExportPluginSettingsAsync(InstalledPlugin plugin)
     {

@@ -24,8 +24,10 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
     private readonly PermissionStore _permissions;
     private readonly ForgeLogger _log;
     private readonly string _settingsDirectory;
+    private readonly AutomationService _automation;
+    private readonly CredentialStore _credentials;
     private readonly List<LoadedPlugin> _loaded = [];
-    public PluginRuntimeManager(IForgeEventBus events, IForgeConnections connections, PermissionStore permissions, ForgeLogger log, string settingsDirectory) { _events = events; _connections = connections; _permissions = permissions; _log = log; _settingsDirectory = settingsDirectory; }
+    public PluginRuntimeManager(IForgeEventBus events, IForgeConnections connections, PermissionStore permissions, ForgeLogger log, string settingsDirectory, AutomationService automation, CredentialStore credentials) { _events = events; _connections = connections; _permissions = permissions; _log = log; _settingsDirectory = settingsDirectory; _automation = automation; _credentials = credentials; }
 
     public async Task StartAsync(IEnumerable<InstalledPlugin> plugins, CancellationToken cancellationToken = default)
     {
@@ -53,7 +55,7 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
                 if (type is null || Activator.CreateInstance(type) is not IForgePlugin plugin) throw new InvalidDataException("No IForgePlugin entry type was found.");
                 var data = Path.Combine(_settingsDirectory, "plugin-data", installed.Manifest.Id); Directory.CreateDirectory(data);
                 var settings = new JsonPluginSettings(Path.Combine(_settingsDirectory, installed.Manifest.Id + ".json"));
-                await plugin.InitializeAsync(new ForgeContext(installed.Manifest.Id, data, granted, new PermissionedEventBus(installed.Manifest.Id, granted, _events), new PermissionedConnections(installed.Manifest.Id, granted, _connections), settings), cancellationToken);
+                await plugin.InitializeAsync(new ForgeContext(installed.Manifest.Id, data, granted, new PermissionedEventBus(installed.Manifest.Id, granted, _events), new PermissionedConnections(installed.Manifest.Id, granted, _connections), settings, new PluginAutomation(installed.Manifest.Id, _automation), new PluginSecrets(installed.Manifest.Id, _credentials)), cancellationToken);
                 await plugin.StartAsync(cancellationToken); _loaded.Add(new(installed.Manifest.Id, plugin, loadContext));
                 await _log.WriteAsync("INFO", installed.Manifest.Id, "Plugin started.");
             }
@@ -74,7 +76,23 @@ public sealed class PluginRuntimeManager : IAsyncDisposable
     }
     public async ValueTask DisposeAsync() => await StopAsync();
     private sealed record LoadedPlugin(string Id, IForgePlugin Plugin, AssemblyLoadContext Context);
-    private sealed record ForgeContext(string PluginId, string DataDirectory, IReadOnlySet<string> GrantedPermissions, IForgeEventBus Events, IForgeConnections Connections, IPluginSettings Settings) : IForgeContext;
+    private sealed record ForgeContext(string PluginId, string DataDirectory, IReadOnlySet<string> GrantedPermissions, IForgeEventBus Events, IForgeConnections Connections, IPluginSettings Settings, IForgeAutomation Automation, IPluginSecrets Secrets) : IForgeContext;
+}
+
+internal sealed class PluginAutomation(string pluginId, AutomationService inner) : IForgeAutomation
+{
+    public IDisposable RegisterTrigger(AutomationTriggerDefinition definition) { RequireOwned(definition.Id); return inner.RegisterTrigger(definition); }
+    public IDisposable RegisterAction(AutomationActionDefinition definition, Func<AutomationActionInvocation, CancellationToken, Task> handler) { RequireOwned(definition.Id); return inner.RegisterAction(definition, handler); }
+    public Task FireAsync(string triggerId, IReadOnlyDictionary<string, string>? variables = null, CancellationToken cancellationToken = default) { RequireOwned(triggerId); return inner.FireAsync(triggerId, variables, cancellationToken); }
+    private void RequireOwned(string id) { if (!id.StartsWith(pluginId + ".", StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException($"{pluginId} cannot register or fire automation ID {id}."); }
+}
+
+internal sealed class PluginSecrets(string pluginId, CredentialStore inner) : IPluginSecrets
+{
+    public bool CanPersist => inner.CanPersist;
+    public string? Load(string key) => inner.Load(pluginId + "." + key);
+    public void Save(string key, string value) => inner.Save(pluginId + "." + key, value);
+    public void Delete(string key) => inner.Delete(pluginId + "." + key);
 }
 
 internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string> grants, IForgeEventBus inner) : IForgeEventBus
@@ -87,6 +105,8 @@ internal sealed class PermissionedEventBus(string pluginId, IReadOnlySet<string>
             throw new UnauthorizedAccessException($"{pluginId} requires twitch.ads.read to receive ad events.");
         if (IsRecapEvent(typeof(T)) && !grants.Contains("twitch.events.read"))
             throw new UnauthorizedAccessException($"{pluginId} requires twitch.events.read to receive Twitch engagement events.");
+        if (typeof(T) == typeof(TwitchRewardRedeemed) && !grants.Contains("twitch.redemptions.read") && !grants.Contains("twitch.redemptions.manage"))
+            throw new UnauthorizedAccessException($"{pluginId} requires Twitch redemption permission.");
         return inner.Subscribe(handler);
     }
 
@@ -107,6 +127,11 @@ public sealed class TwitchConnectionView(TwitchAuthService auth) : ITwitchConnec
     public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) => auth.SendChatMessageAsync(message, cancellationToken);
     public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) => auth.DeleteChatMessageAsync(messageId, cancellationToken);
     public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) => auth.GetAdScheduleAsync(cancellationToken);
+    public Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default) => auth.GetCustomRewardsAsync(cancellationToken);
+    public Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) => auth.CreateCustomRewardAsync(reward, cancellationToken);
+    public Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) => auth.UpdateCustomRewardAsync(rewardId, reward, cancellationToken);
+    public Task DeleteCustomRewardAsync(string rewardId, CancellationToken cancellationToken = default) => auth.DeleteCustomRewardAsync(rewardId, cancellationToken);
+    public Task UpdateRedemptionStatusAsync(string rewardId, string redemptionId, string status, CancellationToken cancellationToken = default) => auth.UpdateRedemptionStatusAsync(rewardId, redemptionId, status, cancellationToken);
 }
 
 public sealed class JsonPluginSettings(string path) : IPluginSettings
@@ -148,6 +173,12 @@ internal sealed class PermissionedConnections(string pluginId, IReadOnlySet<stri
         public Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default) { Require("twitch.chat.write"); return inner.SendChatMessageAsync(message, cancellationToken); }
         public Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default) { Require("twitch.chat.moderate"); return inner.DeleteChatMessageAsync(messageId, cancellationToken); }
         public Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default) { Require("twitch.ads.read"); return inner.GetAdScheduleAsync(cancellationToken); }
+        public Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default) { RequireRedemptions(); return inner.GetCustomRewardsAsync(cancellationToken); }
+        public Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.CreateCustomRewardAsync(reward, cancellationToken); }
+        public Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.UpdateCustomRewardAsync(rewardId, reward, cancellationToken); }
+        public Task DeleteCustomRewardAsync(string rewardId, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.DeleteCustomRewardAsync(rewardId, cancellationToken); }
+        public Task UpdateRedemptionStatusAsync(string rewardId, string redemptionId, string status, CancellationToken cancellationToken = default) { Require("twitch.redemptions.manage"); return inner.UpdateRedemptionStatusAsync(rewardId, redemptionId, status, cancellationToken); }
+        private void RequireRedemptions() { if (!grants.Contains("twitch.redemptions.read") && !grants.Contains("twitch.redemptions.manage")) throw new UnauthorizedAccessException($"{pluginId} does not have Twitch redemption permission."); }
         private void Require(string permission) { if (!grants.Contains(permission)) throw new UnauthorizedAccessException($"{pluginId} does not have {permission} permission."); }
     }
 }

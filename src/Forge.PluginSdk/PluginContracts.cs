@@ -35,6 +35,16 @@ public interface IForgeContext
     IForgeEventBus Events { get; }
     IForgeConnections Connections { get; }
     IPluginSettings Settings { get; }
+    IForgeAutomation Automation { get; }
+    IPluginSecrets Secrets { get; }
+}
+
+public interface IPluginSecrets
+{
+    bool CanPersist { get; }
+    string? Load(string key);
+    void Save(string key, string value);
+    void Delete(string key);
 }
 
 public interface IPluginSettings
@@ -66,17 +76,38 @@ public interface ITwitchConnection
     Task SendChatMessageAsync(string message, CancellationToken cancellationToken = default);
     Task DeleteChatMessageAsync(string messageId, CancellationToken cancellationToken = default);
     Task<TwitchAdSchedule?> GetAdScheduleAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TwitchCustomReward>> GetCustomRewardsAsync(CancellationToken cancellationToken = default);
+    Task<TwitchCustomReward> CreateCustomRewardAsync(TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default);
+    Task UpdateCustomRewardAsync(string rewardId, TwitchCustomRewardRequest reward, CancellationToken cancellationToken = default);
+    Task DeleteCustomRewardAsync(string rewardId, CancellationToken cancellationToken = default);
+    Task UpdateRedemptionStatusAsync(string rewardId, string redemptionId, string status, CancellationToken cancellationToken = default);
 }
 
 public sealed record TwitchCategory(string Id, string Name);
 public sealed record TwitchChannel(string BroadcasterId, string CategoryId, string CategoryName, string Title);
 public sealed record TwitchAdSchedule(DateTimeOffset? NextAdAt, int DurationSeconds, int SnoozeCount);
+public sealed record TwitchCustomReward(string Id, string Title, string Prompt, int Cost, bool IsEnabled, bool IsPaused, bool IsUserInputRequired, bool SkipRequestQueue, bool IsManageable);
+public sealed record TwitchCustomRewardRequest(string Title, string Prompt, int Cost, bool IsEnabled = true, bool IsUserInputRequired = false, bool SkipRequestQueue = true);
 
 public interface IForgeEventBus
 {
     IDisposable Subscribe<T>(Func<T, Task> handler);
     Task PublishAsync<T>(T message, CancellationToken cancellationToken = default);
 }
+
+public interface IForgeAutomation
+{
+    IDisposable RegisterTrigger(AutomationTriggerDefinition definition);
+    IDisposable RegisterAction(AutomationActionDefinition definition, Func<AutomationActionInvocation, CancellationToken, Task> handler);
+    Task FireAsync(string triggerId, IReadOnlyDictionary<string, string>? variables = null, CancellationToken cancellationToken = default);
+}
+
+public sealed record AutomationTriggerDefinition(string Id, string Name, string Description = "");
+public sealed record AutomationActionDefinition(string Id, string Name, string Description, IReadOnlyList<AutomationParameter> Parameters);
+public sealed record AutomationParameter(string Key, string Label, string Type = "text", string? Description = null, string? Default = null, bool Required = false, IReadOnlyList<UiOption>? Options = null);
+public sealed record AutomationActionInvocation(JsonElement Configuration, IReadOnlyDictionary<string, string> Variables);
+public sealed record AutomationActionStep(string ActionId, JsonElement Configuration, int DelayMilliseconds = 0);
+public sealed record AutomationBinding(string Id, string Name, string TriggerId, bool Enabled, IReadOnlyList<AutomationActionStep> Actions);
 
 public sealed record ForgeStarted(DateTimeOffset At);
 public sealed record ForgeStopping(DateTimeOffset At);
@@ -108,6 +139,8 @@ public sealed record TwitchSubscriptionMessage(string UserId, string UserLogin, 
 public sealed record TwitchSubscriptionGifted(string UserId, string UserLogin, string UserName, string Tier, int Total, int? CumulativeTotal, bool IsAnonymous, DateTimeOffset At);
 public sealed record TwitchCheered(string UserId, string UserLogin, string UserName, int Bits, string Message, bool IsAnonymous, DateTimeOffset At);
 public sealed record TwitchRaided(string UserId, string UserLogin, string UserName, int Viewers, DateTimeOffset At);
+public sealed record TwitchRewardRedeemed(string RedemptionId, string RewardId, string RewardTitle, string UserId, string UserLogin, string UserName, string UserInput, string Status, DateTimeOffset At);
+public sealed record TwitchRewardsChanged(DateTimeOffset At);
 public sealed record TimedAnnouncementTestRequested(string Kind, string? RuleId = null);
 
 public sealed record PluginUi

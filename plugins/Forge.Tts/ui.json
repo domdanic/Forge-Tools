@@ -1,0 +1,27 @@
+{
+  "sections": [
+    {
+      "title": "Speech provider",
+      "description": "Windows system speech is free and works offline. ElevenLabs is optional and uses your own account and API usage.",
+      "controls": [
+        { "type": "select", "key": "provider", "label": "Provider", "default": "system", "options": [{ "label": "Windows system speech", "value": "system" }, { "label": "ElevenLabs", "value": "elevenlabs" }] },
+        { "type": "text", "key": "systemVoice", "label": "Windows voice name (optional)", "description": "Leave blank for the Windows default voice.", "default": "" },
+        { "type": "credential", "key": "elevenLabsApiKey", "label": "ElevenLabs API key", "description": "Encrypted for this Windows account and excluded from exports. On Linux it is retained only until Forge exits." },
+        { "type": "text", "key": "elevenLabsVoiceId", "label": "ElevenLabs voice ID", "default": "" },
+        { "type": "text", "key": "elevenLabsModel", "label": "ElevenLabs model", "default": "eleven_multilingual_v2" }
+      ]
+    },
+    {
+      "title": "Safety and queue",
+      "controls": [
+        { "type": "text", "key": "maxCharacters", "label": "Maximum characters per message", "default": "300" },
+        { "type": "multiline", "key": "blockedTerms", "label": "Blocked terms (one per line)", "default": "" }
+      ]
+    },
+    {
+      "title": "TTS automations",
+      "description": "Templates may use variables supplied by a trigger, including {user}, {input}, and {reward} from Twitch Redeems.",
+      "controls": [{ "type": "automation-bindings", "key": "automations", "label": "Automations", "optionsSource": "action" }]
+    }
+  ]
+}

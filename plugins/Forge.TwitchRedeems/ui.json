@@ -1,0 +1,14 @@
+{
+  "sections": [
+    {
+      "title": "Channel Point rewards",
+      "description": "Forge can trigger from custom rewards on your channel. Twitch only allows Forge to edit or fulfill rewards originally created through Forge.",
+      "controls": [{ "type": "twitch-rewards", "key": "rewards", "label": "Rewards" }]
+    },
+    {
+      "title": "Reward automations",
+      "description": "Choose what installed Forge action plugins should do when a reward is redeemed. Add Fulfill at the end for queued Forge-created rewards, or Cancel and refund when appropriate. Bindings remain saved if an action plugin is temporarily removed.",
+      "controls": [{ "type": "automation-bindings", "key": "automations", "label": "Automations", "optionsSource": "trigger" }]
+    }
+  ]
+}
