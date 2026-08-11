@@ -115,6 +115,27 @@ public sealed class CoreUpdateService
 
     public static Version CurrentVersion => Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
 
+    public static string GetReleaseSynopsis(string? releaseNotes)
+    {
+        const string fallback = "This Core update includes Forge Tools improvements and fixes. Detailed release notes were not provided for this version.";
+        if (string.IsNullOrWhiteSpace(releaseNotes)) return fallback;
+
+        var lines = releaseNotes.Replace("\r", "").Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Where(line => !line.StartsWith("**Full Changelog**", StringComparison.OrdinalIgnoreCase))
+            .Where(line => !line.StartsWith("## New Contributors", StringComparison.OrdinalIgnoreCase))
+            .Select(line => Regex.Replace(line, @"^#{1,6}\s*|^[-*+]\s*", ""))
+            .Select(line => Regex.Replace(line, @"\[([^\]]+)\]\([^\)]+\)", "$1"))
+            .Select(line => line.Replace("**", "").Replace("`", ""))
+            .Where(line => !line.Equals("What's Changed", StringComparison.OrdinalIgnoreCase))
+            .Take(5)
+            .ToArray();
+        if (lines.Length == 0) return fallback;
+        var synopsis = string.Join(Environment.NewLine, lines.Select(line => "• " + line));
+        return synopsis.Length <= 900 ? synopsis : synopsis[..897] + "…";
+    }
+
     private static string? AssetUrl(IEnumerable<JsonElement> assets, string name) => assets
         .Where(asset => string.Equals(GetString(asset, "name"), name, StringComparison.OrdinalIgnoreCase))
         .Select(asset => GetString(asset, "browser_download_url"))
