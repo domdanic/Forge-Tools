@@ -70,12 +70,13 @@
       "packageUrl": "https://github.com/domdanic/Forge-Tools/releases/download/chat-games-v0.1.2/Forge.ChatGames-0.1.2.zip",
       "sha256": "E07EC0E89538D7B57F11B530043DD311FEF0450B2D39D8F3DA263C21CB8A99A4",
       "forgeApi": "2",
-      "minimumCoreVersion": "0.4.0",
+      "minimumCoreVersion": "0.6.1",
       "verified": false,
       "available": true,
       "permissions": [
         "twitch.chat.read",
         "twitch.chat.write",
+        "twitch.chatters.read",
         "storage.local"
       ]
     },

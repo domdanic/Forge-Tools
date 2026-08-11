@@ -31,7 +31,10 @@ jobs:
           git pull --ff-only origin main
           $catalog = Get-Content catalog/catalog.json -Raw | ConvertFrom-Json
           $entry = $catalog.plugins | Where-Object id -eq 'tools.forge.chat-games'
+          $manifest = Get-Content plugins/Forge.ChatGames/plugin.json -Raw | ConvertFrom-Json
           $entry.version = '${{ github.ref_name }}' -replace '^chat-games-v',''
+          $entry.minimumCoreVersion = $manifest.minimumCoreVersion
+          $entry.permissions = @($manifest.permissions)
           $entry.packageUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$env:PACKAGE"
           $entry.sha256 = $env:SHA256
           $entry.available = $true
