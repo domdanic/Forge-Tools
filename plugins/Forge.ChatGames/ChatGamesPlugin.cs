@@ -120,17 +120,21 @@ public sealed class ChatGamesPlugin : IForgePlugin
         var bet = Bet(parts, 1, 10, Int("blackjackMaxBet", 1000, 1, 1_000_000));
         if (bet <= 0 || player.Balance < bet) return $"@{player.Login}, that bet is invalid or your balance is too low.";
         player.Balance -= bet;
-        var game = new BlackjackGame { Bet = bet, Player = [Card(), Card()], Dealer = [Card(), Card()] };
+        var game = new BlackjackGame { Bet = bet };
+        game.Player.Add(game.Deck.Draw());
+        game.Dealer.Add(game.Deck.Draw());
+        game.Player.Add(game.Deck.Draw());
+        game.Dealer.Add(game.Deck.Draw());
         _blackjack[userId] = game;
         if (Score(game.Player) == 21) return ResolveBlackjack(userId, game, natural: true);
-        return $"@{player.Login}: {Hand(game.Player)} ({Score(game.Player)}). Dealer shows {game.Dealer[0]}. Use {_context!.Settings.Get("hitCommand", "!hit")} or {_context.Settings.Get("standCommand", "!stand")}.";
+        return $"@{player.Login}: {Hand(game.Player)} ({Score(game.Player)}). Dealer shows {Hand([game.Dealer[0]])}. Use {_context!.Settings.Get("hitCommand", "!hit")} or {_context.Settings.Get("standCommand", "!stand")}.";
     }
 
     private string Hit(string userId)
     {
         var player = GetPlayer(userId);
         if (!_blackjack.TryGetValue(userId, out var game)) return $"@{player.Login}, start a hand first.";
-        game.Player.Add(Card());
+        game.Player.Add(game.Deck.Draw());
         return Score(game.Player) >= 21 ? ResolveBlackjack(userId, game, false) : $"@{player.Login}: {Hand(game.Player)} ({Score(game.Player)}). Hit or stand?";
     }
 
@@ -139,7 +143,7 @@ public sealed class ChatGamesPlugin : IForgePlugin
     private string ResolveBlackjack(string userId, BlackjackGame game, bool natural)
     {
         var player = GetPlayer(userId);
-        while (Score(game.Dealer) < 17) game.Dealer.Add(Card());
+        while (Score(game.Dealer) < 17) game.Dealer.Add(game.Deck.Draw());
         var yours = Score(game.Player); var dealer = Score(game.Dealer);
         long payout; string result;
         if (yours > 21) { payout = 0; result = "busted"; }
@@ -225,7 +229,6 @@ public sealed class ChatGamesPlugin : IForgePlugin
     private string PointsName => _context!.Settings.Get("pointsName", "Sparks").Trim() is { Length: > 0 } name ? name : "points";
     private int Int(string key, int fallback, int min, int max) => Math.Clamp(int.TryParse(_context!.Settings.Get(key, fallback.ToString()), out var parsed) ? parsed : fallback, min, max);
     private static long Bet(string[] parts, int index, int fallback, int max) => Math.Clamp(parts.Length > index && long.TryParse(parts[index], out var parsed) ? parsed : fallback, 0, max);
-    private static int Card() => RandomNumberGenerator.GetInt32(1, 14);
     private static int Score(IEnumerable<int> cards) { var values = cards.Select(card => card == 1 ? 11 : Math.Min(card, 10)).ToList(); var score = values.Sum(); foreach (var ace in cards.Where(card => card == 1)) if (score > 21) score -= 10; return score; }
     private static string Hand(IEnumerable<int> cards) => string.Join(" ", cards.Select(card => card switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.ToString() }));
     private void Save() { var temporary = EconomyPath + ".tmp"; File.WriteAllText(temporary, JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true })); File.Move(temporary, EconomyPath, true); }
@@ -233,7 +236,7 @@ public sealed class ChatGamesPlugin : IForgePlugin
     public async ValueTask DisposeAsync() { if (_lifetime is not null) await StopAsync(CancellationToken.None); _gate.Dispose(); }
 
     private static readonly HashSet<int> RedNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-    private sealed class BlackjackGame { public long Bet { get; set; } public List<int> Player { get; set; } = []; public List<int> Dealer { get; set; } = []; }
+    private sealed class BlackjackGame { public BlackjackDeck Deck { get; } = new(); public long Bet { get; set; } public List<int> Player { get; set; } = []; public List<int> Dealer { get; set; } = []; }
     private sealed class Player { public string Login { get; set; } = ""; public string DisplayName { get; set; } = ""; public long Balance { get; set; } public DateTimeOffset LastSeen { get; set; } }
     private sealed class EconomyState
     {

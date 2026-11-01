@@ -21,6 +21,7 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
     private readonly ComboBox _targets = new() { MinWidth = 330 };
     private readonly ComboBox _videoInputs = new() { MinWidth = 250 };
     private readonly ComboBox _audioInputs = new() { MinWidth = 250 };
+    private readonly Button _save = new() { Content = "Save capture rule", HorizontalAlignment = HorizontalAlignment.Left };
     private readonly StackPanel _cards = new();
     private CaptureSwitchMapping? _editing;
 
@@ -54,8 +55,7 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
         refreshObs.Click += async (_, _) => await RefreshObsInputsAsync();
         var sourceRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { refreshObs } };
 
-        var save = new Button { Content = "Save capture rule", HorizontalAlignment = HorizontalAlignment.Left };
-        save.Click += (_, _) => SaveMapping();
+        _save.Click += (_, _) => SaveMapping();
 
         Children.Add(Label("When the Twitch category becomes"));
         Children.Add(searchRow);
@@ -67,7 +67,7 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
         Children.Add(Label("Application Audio Capture source (optional)"));
         Children.Add(_audioInputs);
         Children.Add(sourceRow);
-        Children.Add(save);
+        Children.Add(_save);
         Children.Add(new TextBlock { Text = "Saved capture rules", FontSize = 17, FontWeight = FontWeight.Bold, Margin = new(0, 12, 0, 2) });
         Children.Add(_cards);
         RefreshTargets();
@@ -100,6 +100,7 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
             try { targets = JsonSerializer.Deserialize<List<CaptureTarget>>(File.ReadAllText(_optionsSource), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? []; }
             catch { _status("The running-app list could not be read"); }
         }
+        if (selected is not null && !targets.Any(target => target.Window == selected.Window)) targets.Add(selected);
         var items = targets.Select(target => new ComboBoxItem { Content = target.DisplayName, Tag = target }).ToList();
         _targets.ItemsSource = items;
         _targets.SelectedItem = items.FirstOrDefault(item => item.Tag is CaptureTarget target && selected is not null && target.Window == selected.Window);
@@ -142,6 +143,7 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
         Mappings.RemoveAll(item => item.CategoryId == category.Id);
         Mappings.Add(new(category.Id, category.Name, target.Process, target.Window, EmptyToNull(video), EmptyToNull(audio)));
         _editing = null;
+        _save.Content = "Save capture rule";
         RenderCards();
         Changed?.Invoke(this, EventArgs.Empty);
         _status($"Saved capture rule for {category.Name}");
@@ -179,17 +181,35 @@ internal sealed class CaptureSwitchMappingEditor : StackPanel
         _editing = mapping;
         var category = new ComboBoxItem { Content = mapping.CategoryName, Tag = new TwitchCategory(mapping.CategoryId, mapping.CategoryName) };
         _categories.ItemsSource = new[] { category }; _categories.SelectedItem = category; _query.Text = mapping.CategoryName;
-        SelectTarget(mapping.TargetWindow);
+        var targets = (_targets.ItemsSource as IEnumerable<ComboBoxItem>)?.ToList() ?? [];
+        var selected = targets.FirstOrDefault(item => item.Tag is CaptureTarget target && target.Window == mapping.TargetWindow);
+        if (selected is null)
+        {
+            selected = new ComboBoxItem { Content = mapping.TargetProcess + " (saved app)", Tag = new CaptureTarget(mapping.TargetProcess, mapping.TargetProcess, mapping.TargetWindow) };
+            targets.Add(selected);
+            _targets.ItemsSource = targets;
+        }
+        _targets.SelectedItem = selected;
         SetSavedInput(_videoInputs, mapping.VideoInput, "No video source");
         SetSavedInput(_audioInputs, mapping.AudioInput, "No audio source");
+        _save.Content = "Save changes";
+        _query.BringIntoView();
+        _query.Focus();
         _status($"Editing {mapping.CategoryName}");
     }
 
-    private void SelectTarget(string window) => _targets.SelectedItem = (_targets.ItemsSource as IEnumerable<ComboBoxItem>)?.FirstOrDefault(item => item.Tag is CaptureTarget target && target.Window == window);
     private static void SetSavedInput(ComboBox combo, string? name, string emptyLabel)
     {
-        var item = new ComboBoxItem { Content = name ?? emptyLabel, Tag = name ?? "" };
-        combo.ItemsSource = new[] { item }; combo.SelectedItem = item;
+        var items = (combo.ItemsSource as IEnumerable<ComboBoxItem>)?.ToList() ?? [];
+        if (!items.Any(item => string.IsNullOrEmpty(item.Tag as string)))
+            items.Insert(0, new ComboBoxItem { Content = emptyLabel, Tag = "" });
+        var selected = items.FirstOrDefault(item => string.Equals(item.Tag as string, name ?? "", StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+        {
+            selected = new ComboBoxItem { Content = name, Tag = name };
+            items.Add(selected);
+        }
+        combo.ItemsSource = items; combo.SelectedItem = selected;
     }
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
     private sealed record ObsInput(string Name, string Kind);

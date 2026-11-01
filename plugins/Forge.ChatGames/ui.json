@@ -25,7 +25,7 @@
       { "type": "text", "key": "rouletteCommand", "label": "Command (!roulette red 10, odd 10, or 17 10)", "default": "!roulette" },
       { "type": "text", "key": "rouletteMaxBet", "label": "Maximum bet", "default": "1000" }
     ]},
-    { "title": "Blackjack", "collapsible": true, "initiallyExpanded": false, "description": "Viewers start a hand with a wager, then use the configured hit and stand commands. Dealer stands on 17.", "controls": [
+    { "title": "Blackjack", "collapsible": true, "initiallyExpanded": false, "description": "Viewers start a hand with a wager, then use the configured hit and stand commands. Dealer stands on 17. Each hand uses a fresh 52-card deck shared by you and the dealer, with no replacement.", "controls": [
       { "type": "toggle", "key": "blackjackEnabled", "label": "Enable blackjack", "default": true },
       { "type": "text", "key": "blackjackCommand", "label": "Start command (!blackjack 25)", "default": "!blackjack" },
       { "type": "text", "key": "blackjackMaxBet", "label": "Maximum bet", "default": "1000" },

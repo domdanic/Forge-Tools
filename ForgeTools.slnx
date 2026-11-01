@@ -15,4 +15,7 @@
     <Project Path="src/Forge.PluginSdk/Forge.PluginSdk.csproj" />
     <Project Path="src/Forge.Updater/Forge.Updater.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Forge.Regression/Forge.Regression.csproj" />
+  </Folder>
 </Solution>

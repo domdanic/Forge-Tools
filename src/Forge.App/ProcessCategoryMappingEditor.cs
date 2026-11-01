@@ -19,6 +19,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     private readonly ComboBox _categories = new() { MinWidth = 260 };
     private readonly TextBox _command = new() { PlaceholderText = "Optional, for example !minecraft", MinWidth = 260 };
     private readonly ComboBox _commandAccess = new() { MinWidth = 260 };
+    private readonly Button _save = new() { Content = "Add saved game", HorizontalAlignment = HorizontalAlignment.Left };
     private readonly StackPanel _cards = new();
     private ProcessCategoryMapping? _editing;
 
@@ -48,8 +49,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         _query.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) await SearchAsync(); };
         var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _query, search } };
 
-        var save = new Button { Content = "Add saved game", HorizontalAlignment = HorizontalAlignment.Left };
-        save.Click += (_, _) => SaveMapping();
+        _save.Click += (_, _) => SaveMapping();
         var accessItems = new[]
         {
             new ComboBoxItem { Content = "Broadcaster and moderators", Tag = "moderators" },
@@ -67,7 +67,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         Children.Add(_command);
         Children.Add(new TextBlock { Text = "Who can use the command" });
         Children.Add(_commandAccess);
-        Children.Add(save);
+        Children.Add(_save);
         Children.Add(new TextBlock { Text = "Saved games", FontSize = 17, FontWeight = FontWeight.Bold, Margin = new(0, 12, 0, 2) });
         Children.Add(_cards);
         RenderCards();
@@ -82,6 +82,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
             try { names = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_optionsSource)) ?? []; }
             catch { _status("The plugin's running-app list could not be read"); }
         }
+        if (!string.IsNullOrWhiteSpace(selected) && !names.Contains(selected, StringComparer.OrdinalIgnoreCase)) names.Add(selected);
         var items = names.Select(name => new ComboBoxItem { Content = name, Tag = name }).ToList();
         _process.ItemsSource = items;
         _process.SelectedItem = items.FirstOrDefault(item => string.Equals(item.Tag as string, selected, StringComparison.OrdinalIgnoreCase));
@@ -115,6 +116,7 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
         Mappings.RemoveAll(item => item.Process.Equals(process, StringComparison.OrdinalIgnoreCase));
         Mappings.Add(new(process, category.Id, category.Name, command, access));
         _editing = null;
+        _save.Content = "Add saved game";
         RenderCards(); Changed?.Invoke(this, EventArgs.Empty);
         _status($"Saved {process} → {category.Name}");
     }
@@ -151,11 +153,22 @@ internal sealed class ProcessCategoryMappingEditor : StackPanel
     private void BeginEdit(ProcessCategoryMapping mapping)
     {
         _editing = mapping;
-        _process.SelectedItem = (_process.ItemsSource as IEnumerable<ComboBoxItem>)?.FirstOrDefault(item => string.Equals(item.Tag as string, mapping.Process, StringComparison.OrdinalIgnoreCase));
+        var processes = (_process.ItemsSource as IEnumerable<ComboBoxItem>)?.ToList() ?? [];
+        var selected = processes.FirstOrDefault(item => string.Equals(item.Tag as string, mapping.Process, StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+        {
+            selected = new ComboBoxItem { Content = mapping.Process + " (saved app)", Tag = mapping.Process };
+            processes.Add(selected);
+            _process.ItemsSource = processes;
+        }
+        _process.SelectedItem = selected;
         var item = new ComboBoxItem { Content = mapping.CategoryName, Tag = new TwitchCategory(mapping.CategoryId, mapping.CategoryName) };
         _categories.ItemsSource = new[] { item }; _categories.SelectedItem = item; _query.Text = mapping.CategoryName;
         _command.Text = mapping.ChatCommand;
         _commandAccess.SelectedItem = (_commandAccess.ItemsSource as IEnumerable<ComboBoxItem>)?.FirstOrDefault(item => string.Equals(item.Tag as string, mapping.CommandAccess, StringComparison.OrdinalIgnoreCase)) ?? (_commandAccess.ItemsSource as IEnumerable<ComboBoxItem>)?.First();
+        _save.Content = "Save changes";
+        _process.BringIntoView();
+        _query.Focus();
         _status($"Editing {mapping.Process}");
     }
 

@@ -16,3 +16,4 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore ForgeTools.slnx --configfile NuGet.Config
       - run: dotnet build ForgeTools.slnx -c Release --no-restore --warnaserror
+      - run: dotnet run --project tests/Forge.Regression/Forge.Regression.csproj -c Release --no-build
