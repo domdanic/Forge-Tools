@@ -37,6 +37,9 @@ public sealed partial class MainWindow : Window
     private TextBlock? _twitchBotStatus;
     private Button? _twitchBotAction;
     private TextBlock? _obsStatus;
+    private Button? _obsAction;
+    private bool _obsStartupAttempted;
+    private readonly IDisposable _obsStatusSubscription;
 
     public MainWindow()
     {
@@ -46,6 +49,11 @@ public sealed partial class MainWindow : Window
         _logger = new(_plugins.LogsDirectory);
         _credentials = new(_plugins.CredentialsDirectory);
         _obs = new(_events, _logger);
+        _obsStatusSubscription = _events.Subscribe<ObsConnectionChanged>(_ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(UpdateObsStatus);
+            return Task.CompletedTask;
+        });
         _twitchChat = new(_twitch, _events, _logger);
         _permissions = new(_plugins.SettingsDirectory);
         _automation = new(_plugins.SettingsDirectory, _logger);
@@ -55,7 +63,7 @@ public sealed partial class MainWindow : Window
         _plugins.Profiles.Changed += async (_, changed) => await _events.PublishAsync(changed);
         InitializeComponent();
         Opened += async (_, _) => await RefreshAsync();
-        Closed += async (_, _) => { await _events.PublishAsync(new ForgeStopping(DateTimeOffset.UtcNow)); await _runtime.DisposeAsync(); await _twitchChat.DisposeAsync(); await _obs.DisposeAsync(); };
+        Closed += async (_, _) => { await _events.PublishAsync(new ForgeStopping(DateTimeOffset.UtcNow)); await _runtime.DisposeAsync(); await _twitchChat.DisposeAsync(); await _obs.DisposeAsync(); _obsStatusSubscription.Dispose(); };
     }
 
     private async Task RefreshAsync()
@@ -110,7 +118,7 @@ public sealed partial class MainWindow : Window
         obsPassword.Text = _credentials.Load("obs.websocket.password") ?? "";
         obs.Children.Add(obsPassword);
         obs.Children.Add(new TextBlock { Text = "The password is a credential and is never written to the portable settings file.", Foreground = Brushes.LightGray, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new(0, -6, 0, 10) });
-        var obsAuto = new CheckBox { Content = "Connect automatically when Forge starts", IsChecked = ReadBool(saved, "obsAutoConnect", true), Margin = new(0, 7, 0, 12) };
+        var obsAuto = new CheckBox { Content = "Connect automatically on startup and reconnect if OBS disconnects", IsChecked = ReadBool(saved, "obsAutoConnect", true), Margin = new(0, 7, 0, 12) };
         obs.Children.Add(obsAuto);
         var rememberObs = new CheckBox { Content = _credentials.CanPersist ? "Remember password on this device" : "Password persistence is unavailable on this operating system", IsChecked = _credentials.CanPersist && !string.IsNullOrEmpty(obsPassword.Text), IsEnabled = _credentials.CanPersist, Margin = new(0, 0, 0, 12) };
         obs.Children.Add(rememberObs);
@@ -122,21 +130,25 @@ public sealed partial class MainWindow : Window
             SaveConnections(obsHost.Text ?? "127.0.0.1", obsPort.Text ?? "4455", obsAuto.IsChecked ?? false, ReadString(current, "twitchChannel", ""), ReadBool(current, "twitchUseBot", false));
             if (rememberObs.IsChecked == true && !string.IsNullOrEmpty(obsPassword.Text)) _credentials.Save("obs.websocket.password", obsPassword.Text);
             else _credentials.Delete("obs.websocket.password");
+            _obs.SetAutoReconnect(obsAuto.IsChecked == true);
+            UpdateObsStatus();
             StatusText.Text = "OBS settings saved";
         };
         var connectObs = Button("Connect");
+        _obsAction = connectObs;
         _obsStatus = Status("Not connected");
+        UpdateObsStatus();
         async Task ToggleObsAsync(bool showError)
         {
             try
             {
-                if (_obs.IsConnected) { await _obs.DisconnectAsync(); connectObs.Content = "Connect"; _obsStatus.Text = "Not connected"; _obsStatus.Foreground = Brushes.Goldenrod; return; }
+                if (_obs.IsConnected || _obs.IsReconnecting) { await _obs.DisconnectAsync(); UpdateObsStatus(); return; }
                 connectObs.IsEnabled = false; _obsStatus.Text = "Connecting…";
                 if (!int.TryParse(obsPort.Text, out var port)) throw new InvalidOperationException("OBS WebSocket port must be a number.");
-                await _obs.ConnectAsync(obsHost.Text ?? "127.0.0.1", port, obsPassword.Text);
+                await _obs.ConnectAsync(obsHost.Text ?? "127.0.0.1", port, obsPassword.Text, autoReconnect: obsAuto.IsChecked == true);
                 connectObs.Content = "Disconnect"; _obsStatus.Text = "Connected"; _obsStatus.Foreground = Brushes.LightGreen;
             }
-            catch (Exception ex) { _obsStatus.Text = "Connection failed"; _obsStatus.Foreground = Brushes.OrangeRed; if (showError) await ShowNoticeAsync("OBS connection failed", ex.Message); }
+            catch (Exception ex) { UpdateObsStatus(); if (showError) await ShowNoticeAsync("OBS connection failed", ex.Message + (_obs.IsReconnecting ? " Forge will keep retrying automatically." : "")); }
             finally { connectObs.IsEnabled = true; }
         }
         connectObs.Click += async (_, _) => await ToggleObsAsync(true);
@@ -187,7 +199,19 @@ public sealed partial class MainWindow : Window
         AddTab("Connections", panel);
         _ = RestoreTwitchAsync();
         _ = RestoreTwitchBotAsync();
-        if (obsAuto.IsChecked == true && !string.IsNullOrEmpty(obsPassword.Text)) _ = ToggleObsAsync(false);
+        if (!_obsStartupAttempted)
+        {
+            _obsStartupAttempted = true;
+            if (obsAuto.IsChecked == true) _ = ToggleObsAsync(false);
+        }
+    }
+
+    private void UpdateObsStatus()
+    {
+        if (_obsStatus is null || _obsAction is null) return;
+        _obsStatus.Text = _obs.IsConnected ? "Connected" : _obs.IsReconnecting ? "Waiting for OBS — retrying automatically…" : "Not connected";
+        _obsStatus.Foreground = _obs.IsConnected ? Brushes.LightGreen : Brushes.Goldenrod;
+        _obsAction.Content = _obs.IsConnected ? "Disconnect" : _obs.IsReconnecting ? "Stop reconnecting" : "Connect";
     }
 
     private async Task RestoreTwitchAsync()

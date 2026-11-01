@@ -14,7 +14,7 @@ Forge Tools is a cross-platform Avalonia desktop host for streamer tools. The co
 ## Core platform
 
 - Avalonia 12 host for Windows and Linux.
-- Authenticated OBS WebSocket 5 connection with automatic reconnect-on-start behavior.
+- Authenticated OBS WebSocket 5 connection with automatic startup connection and retry after disconnects.
 - Twitch Device Code OAuth with validation, refresh, and revocation.
 - Shared permission-gated OBS and Twitch connection interfaces for plugins.
 - Plugin lifecycle (`Initialize`, `Start`, `Stop`, `Dispose`) with collectible load contexts and lifecycle-exception containment.

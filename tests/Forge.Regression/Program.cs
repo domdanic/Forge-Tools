@@ -41,6 +41,7 @@ internal static class Program
     {
         AppBuilder.Configure<Application>().UseHeadless(new AvaloniaHeadlessPlatformOptions()).SetupWithoutStarting();
         Application.Current!.Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+        Task.Run(ObsReconnectChecks.RunAsync).GetAwaiter().GetResult();
         Decks();
         Hands();
         Editors();
